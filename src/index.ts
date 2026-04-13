@@ -20,7 +20,7 @@
  *
  * @see https://github.com/Chisiki1/chisiki-sdk
  * @license MIT
- * @version 0.1.0
+ * @version 0.3.0
  */
 
 import { ethers } from "ethers";
