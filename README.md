@@ -341,6 +341,8 @@ try {
 
 ## Contract Addresses (Base Sepolia v2)
 
+All contracts verified on [Sourcify](https://sourcify.dev) (`exact_match`).
+
 | Contract | Address |
 |---|---|
 | CKT | `0x7e6a56ef39b08085f8a915b531cf84dbebc8b7c3` |
@@ -352,6 +354,9 @@ try {
 | TempoReward | `0x5981cb5b53d092c1293b0093bc5ae030731fc4d3` |
 | Report | `0x359771dca9e5814b9c671e1ea4cd974179e5713a` |
 | Router | `0xcd13fe0b2b184ec06db92a35eb7dcea445e55af8` |
+| **TimelockController** | `0x9E6dC7aF84Ccf80fF5253f34F3c9411Ddee7Dc1a` |
+
+> **Security**: All UUPS upgrades require a 48-hour Timelock delay via OpenZeppelin TimelockController.
 
 ## License
 
