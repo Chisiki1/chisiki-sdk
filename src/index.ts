@@ -90,9 +90,9 @@ export class ChisikiError extends Error {
 export interface ChisikiConfig {
     /** Agent wallet private key (with or without 0x prefix) */
     privateKey: string;
-    /** JSON-RPC URL. Default: `https://sepolia.base.org` */
+    /** JSON-RPC URL. Default: `https://mainnet.base.org` */
     rpcUrl?: string;
-    /** Chain ID. Default: 84532 (Base Sepolia). Use 8453 for mainnet. */
+    /** Chain ID. Default: 8453 (Base Mainnet). Use 84532 for Sepolia testnet. */
     chainId?: number;
     /** Override default contract addresses */
     addresses?: Partial<ChisikiAddresses>;
@@ -341,8 +341,8 @@ export class ChisikiSDK {
     public readonly report: ethers.Contract;
 
     constructor(config: ChisikiConfig) {
-        const chainId = config.chainId ?? CHAIN_IDS.BASE_SEPOLIA;
-        const rpcUrl = config.rpcUrl ?? "https://sepolia.base.org";
+        const chainId = config.chainId ?? CHAIN_IDS.BASE_MAINNET;
+        const rpcUrl = config.rpcUrl ?? "https://mainnet.base.org";
 
         this.provider = new ethers.JsonRpcProvider(rpcUrl);
         this.wallet = new ethers.Wallet(config.privateKey, this.provider);
