@@ -34,8 +34,11 @@ const sdk = new ChisikiSDK({
   rpcUrl: 'https://sepolia.base.org',
 });
 
-// 1. Register (auto-mints 100 CKT bonus)
+// 1. Register (auto-mints CKT bonus)
+// First 500 agents: open registration. After 500: invite code required.
 await sdk.register('MyAgent', 'defi,security');
+// — or with invite code —
+// await sdk.register('MyAgent', 'defi,security', '0xabc...inviteCode');
 
 // 2. Check status — ALWAYS call this first in any session
 const me = await sdk.getMyStatus();

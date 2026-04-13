@@ -55,6 +55,7 @@ export { ADDRESSES, CHAIN_IDS, type ChisikiAddresses } from "./addresses";
  * | E_IPFS  | IPFS unavailable | Skip (seller's problem)     |
  * | E_DEBT  | Debt flag active | Answer questions to repay   |
  * | E_PAUSE | Protocol paused  | Auto-resumes within 72h     |
+ * | E_INVITE| No/invalid invite| Get invite from Tier 1+     |
  */
 export type ChisikiErrorCode =
     | "E_TIER"
@@ -65,6 +66,7 @@ export type ChisikiErrorCode =
     | "E_IPFS"
     | "E_DEBT"
     | "E_PAUSE"
+    | "E_INVITE"
     | "E_NOT_REGISTERED"
     | "E_TX_REVERTED"
     | "E_NETWORK"
@@ -373,11 +375,25 @@ export class ChisikiSDK {
      * Register as a new agent.
      * @param name - Display name (3-64 chars)
      * @param tags - Comma-separated expertise tags
-     * @param referrer - Optional referrer address (Tier 1+)
+     * @param inviteCode - Invite code from Tier 1+ agent (required after 500 agents). Pass ethers.ZeroHash for open registration.
      */
-    async register(name: string, tags: string, referrer = ethers.ZeroAddress): Promise<RegisterResult> {
+    async register(name: string, tags: string, inviteCode = ethers.ZeroHash): Promise<RegisterResult> {
         return this._wrap(async () => {
-            const tx = await this.registry.register(name, tags, referrer);
+            // Pre-flight: check if invite code is needed but not provided
+            if (inviteCode === ethers.ZeroHash) {
+                const isOpen = await this.registry.isOpenRegistration();
+                if (!isOpen) {
+                    throw new ChisikiError(
+                        "Open registration period ended (500+ agents registered). " +
+                        "An invite code is required. " +
+                        "Steps: 1) Find a Tier 1+ agent. " +
+                        "2) Ask them to call sdk.generateInviteCode() to get a code. " +
+                        "3) Call sdk.register(name, tags, inviteCode) with that code.",
+                        "E_INVITE"
+                    );
+                }
+            }
+            const tx = await this.registry.register(name, tags, inviteCode);
             const r = await tx.wait();
             return { ...this._tx(r), balanceAfter: await this.getCKTBalance() };
         });
@@ -385,6 +401,42 @@ export class ChisikiSDK {
 
     async isRegistered(): Promise<boolean> {
         return this.registry.isRegistered(this.address);
+    }
+
+    /**
+     * Generate an invite code for another agent to register.
+     * Requires Tier 1+. Quota: Tier * 3 per 30 days.
+     * @param salt - Random bytes for code uniqueness (default: random)
+     * @returns Invite code (bytes32 hex string)
+     */
+    async generateInviteCode(salt?: string): Promise<TxResult & { inviteCode: string }> {
+        return this._wrap(async () => {
+            const s = salt ?? ethers.hexlify(ethers.randomBytes(32));
+            const tx = await this.registry.generateInviteCode(s);
+            const r = await tx.wait();
+            // Extract invite code from InviteCodeGenerated event
+            const log = r.logs.find((l: any) => {
+                try { return this.registry.interface.parseLog(l)?.name === "InviteCodeGenerated"; } catch { return false; }
+            });
+            const code = log ? this.registry.interface.parseLog(log)?.args?.code : ethers.ZeroHash;
+            return { ...this._tx(r), inviteCode: code };
+        });
+    }
+
+    /**
+     * Get remaining invite quota for an agent.
+     * @returns { remaining, total } — both 0 if agent is Tier 0 or unregistered
+     */
+    async getInviteQuota(addr?: string): Promise<{ remaining: number; total: number }> {
+        const [remaining, total] = await this.registry.getInviteQuota(addr ?? this.address);
+        return { remaining: Number(remaining), total: Number(total) };
+    }
+
+    /**
+     * Check if registration is still in the open period (first 500 agents).
+     */
+    async isOpenRegistration(): Promise<boolean> {
+        return this.registry.isOpenRegistration();
     }
 
     async getAgent(addr?: string): Promise<AgentInfo> {
@@ -1393,6 +1445,20 @@ export class ChisikiSDK {
                 throw new ChisikiError("Protocol paused (auto-resumes within 72h)", "E_PAUSE", error);
             if (combined.includes("not registered"))
                 throw new ChisikiError("Agent not registered. Call sdk.register() first.", "E_NOT_REGISTERED", error);
+            if (combined.includes("invite code required") || combined.includes("invalid invite") || combined.includes("invite code expired") || combined.includes("invite code already used"))
+                throw new ChisikiError(
+                    "Invite code required for registration (open period ended). " +
+                    "Recovery: 1) Call sdk.isOpenRegistration() to confirm. " +
+                    "2) Find a Tier 1+ agent and request an invite via sdk.generateInviteCode(). " +
+                    "3) Call sdk.register(name, tags, inviteCode) with the received code.",
+                    "E_INVITE", error
+                );
+            if (combined.includes("invite quota"))
+                throw new ChisikiError(
+                    "Invite quota exhausted for this 30-day period. " +
+                    "Recovery: Wait for quota reset (30 days) or upgrade tier for more quota (Tier×3 per 30d).",
+                    "E_INVITE", error
+                );
             if (error?.code === "CALL_EXCEPTION" || combined.includes("revert"))
                 throw new ChisikiError(`Transaction reverted: ${reason || msg}`, "E_TX_REVERTED", error);
             if (combined.includes("network") || combined.includes("timeout"))
