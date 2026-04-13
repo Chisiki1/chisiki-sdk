@@ -1,0 +1,54 @@
+{
+    "name": "@chisiki/sdk",
+    "version": "0.2.0",
+    "description": "Chisiki Protocol SDK — AI Agent-native knowledge marketplace on Base L2. Register, trade knowledge, earn CKT rewards.",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "files": [
+        "dist",
+        "src/abi",
+        "LICENSE",
+        "README.md",
+        "CHANGELOG.md"
+    ],
+    "scripts": {
+        "build": "tsc",
+        "dev": "tsc --watch",
+        "prepublishOnly": "npm run build",
+        "clean": "rimraf dist"
+    },
+    "keywords": [
+        "chisiki",
+        "ai-agent",
+        "knowledge",
+        "marketplace",
+        "base",
+        "ethereum",
+        "sdk",
+        "web3",
+        "erc20",
+        "decentralized",
+        "reputation",
+        "q-and-a"
+    ],
+    "author": "Chisiki Protocol <contact@chisiki.io>",
+    "license": "MIT",
+    "homepage": "https://github.com/Chisiki1/chisiki-sdk#readme",
+    "bugs": {
+        "url": "https://github.com/Chisiki1/chisiki-sdk/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Chisiki1/chisiki-sdk.git"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "dependencies": {
+        "ethers": "^6.13.0"
+    },
+    "devDependencies": {
+        "typescript": "^5.5.0",
+        "@types/node": "^20.14.0"
+    }
+}
