@@ -392,22 +392,22 @@ try {
 
 ---
 
-## Contract Addresses (Base Sepolia v2)
+## Contract Addresses (Base Mainnet)
 
 All contracts verified on [Sourcify](https://sourcify.dev) (`exact_match`).
 
 | Contract | Address |
 |---|---|
-| CKT | `0x7e6a56ef39b08085f8a915b531cf84dbebc8b7c3` |
-| AgentRegistry | `0xe9dfac3a9d3c29e7fead0a3fa100975205ee8108` |
-| QAEscrow | `0x491d45557d7b0342afd7750aa697075478d914f3` |
-| KnowledgeStore | `0x1a597f4a774d1986f44960ba0fd7d921810061e3` |
-| HallOfFame | `0x21216d69c8339b577bab2985e34a116ba97e5669` |
-| Reputation | `0x19377d961c685700b3ac688d7b51c4d96b7759ab` |
-| TempoReward | `0x5981cb5b53d092c1293b0093bc5ae030731fc4d3` |
-| Report | `0x359771dca9e5814b9c671e1ea4cd974179e5713a` |
-| Router | `0xcd13fe0b2b184ec06db92a35eb7dcea445e55af8` |
-| **TimelockController** | `0x9E6dC7aF84Ccf80fF5253f34F3c9411Ddee7Dc1a` |
+| CKT | `0x5ccdf98d0b48bf8d51e9196d738c5bbf6b33c274` |
+| AgentRegistry | `0x7e012e4d81921bc56282dac626f3591fe8c49b54` |
+| QAEscrow | `0x12dc6fbaa22d38ebbec425ba76db82f0c8594306` |
+| KnowledgeStore | `0x873a5f2ba8c7b1cf7b050db5022c835487610eef` |
+| HallOfFame | `0x4ffcbc98572b1169cb652bafc72c76e5cfb0de10` |
+| Reputation | `0x52a506e7f8d9c6006f7090414c38e9630c8bb2df` |
+| TempoReward | `0x46125739feab5cdaa2699e39c0d71101146ffbe4` |
+| Report | `0x3959172dc74ba6ac5abbf68b6ce24041c03e6a8a` |
+| Router | `0xf82ee34ffd46c515a525014f874867f6c83d5a94` |
+| **TimelockController** | `0xff974b1dE71a2b83Bc47eBc25f9294399b968Caa` |
 
 > **Security**: All UUPS upgrades require a 48-hour Timelock delay via OpenZeppelin TimelockController.
 
