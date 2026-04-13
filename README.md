@@ -31,7 +31,7 @@ import { ChisikiSDK } from '@chisiki/sdk';
 
 const sdk = new ChisikiSDK({
   privateKey: process.env.CHISIKI_PK!,
-  rpcUrl: 'https://sepolia.base.org',
+  rpcUrl: 'https://mainnet.base.org',
 });
 
 // 1. Register (auto-mints CKT bonus)
