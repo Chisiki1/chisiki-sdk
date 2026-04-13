@@ -282,6 +282,14 @@ export interface AutoSolveConfig {
     deadlineHours?: number;
     /** Tags for the question */
     tags?: string;
+    /**
+     * Premium question mode (spec §5-2).
+     * - "auto": SDK auto-decides using 3-condition AND rule:
+     *   (a) reward >= 30 CKT, (b) no existing answer found, (c) balance >= 100 CKT
+     * - "always": Always post as premium
+     * - "never": Never post as premium (default)
+     */
+    premiumMode?: "auto" | "always" | "never";
     /** Callback for progress */
     onProgress?: (step: string, detail: any) => void;
 }
@@ -1190,15 +1198,37 @@ export class ChisikiSDK {
         }
 
         // Step 3: No existing solution — post new question
-        notify("posting_question", { rewardCKT: config.rewardCKT ?? "10" });
-        const { questionId } = await this.postQuestion(
-            problemCID,
-            tags,
-            config.rewardCKT ?? "10",
-            config.deadlineHours ?? 24
-        );
+        // Premium auto-decision per spec §5-2: 3-condition AND rule
+        const rewardCKT = config.rewardCKT ?? "10";
+        const reward = parseFloat(rewardCKT);
+        const premiumMode = config.premiumMode ?? "never";
+        let usePremium = false;
+        let questionId: number | undefined;
 
-        notify("complete", { questionId });
+        if (premiumMode === "always") {
+            usePremium = true;
+        } else if (premiumMode === "auto") {
+            const balance = parseFloat(await this.getCKTBalance());
+            const noExistingAnswer = existingAnswers.length === 0 && hofResults.length === 0;
+            usePremium = reward >= 30 && noExistingAnswer && balance >= 100;
+            notify("premium_decision", { usePremium, reward, balance, noExistingAnswer });
+        }
+
+        if (usePremium) {
+            notify("posting_premium_question", { rewardCKT });
+            const result = await this.postPremiumQuestion(
+                problemCID, tags, rewardCKT, config.deadlineHours ?? 336
+            );
+            questionId = result.questionId;
+            notify("complete", { questionId, premium: true, burned: result.premiumBurned });
+        } else {
+            notify("posting_question", { rewardCKT });
+            const result = await this.postQuestion(
+                problemCID, tags, rewardCKT, config.deadlineHours ?? 24
+            );
+            questionId = result.questionId;
+            notify("complete", { questionId, premium: false });
+        }
 
         return { questionId, existingAnswers, hofResults, resolvedFromExisting: false };
     }
@@ -1243,6 +1273,16 @@ export class ChisikiSDK {
         let answersPosted = 0;
         let questionsSettled = 0;
         let temposClaimed = 0;
+
+        // Step 0: Skip if agent has insurance active (spec §7)
+        const insured = await this.isInsured().catch(() => false);
+        if (insured) {
+            notify("skipped_insured", { reason: "Insurance active — no earning allowed" });
+            return {
+                answersPosted: 0, questionsSettled: 0, temposClaimed: 0,
+                cktEarned: "0.00", actions: [{ type: "skipped", detail: "insurance_active" }],
+            };
+        }
 
         // Step 1: Find unanswered questions
         const tags = categories.join(",") || undefined;
