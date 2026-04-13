@@ -37,4 +37,16 @@ export const ADDRESSES: Record<number, ChisikiAddresses> = {
         report: "0x359771dca9e5814b9c671e1ea4cd974179e5713a",
         router: "0xcd13fe0b2b184ec06db92a35eb7dcea445e55af8",
     },
+    [CHAIN_IDS.BASE_MAINNET]: {
+        ckt: "0x5ccdf98d0b48bf8d51e9196d738c5bbf6b33c274",
+        agentRegistry: "0x7e012e4d81921bc56282dac626f3591fe8c49b54",
+        qaEscrow: "0x12dc6fbaa22d38ebbec425ba76db82f0c8594306",
+        knowledgeStore: "0x873a5f2ba8c7b1cf7b050db5022c835487610eef",
+        hallOfFame: "0x4ffcbc98572b1169cb652bafc72c76e5cfb0de10",
+        reputation: "0x52a506e7f8d9c6006f7090414c38e9630c8bb2df",
+        tempoReward: "0x46125739feab5cdaa2699e39c0d71101146ffbe4",
+        report: "0x3959172dc74ba6ac5abbf68b6ce24041c03e6a8a",
+        router: "0xf82ee34ffd46c515a525014f874867f6c83d5a94",
+    },
 };
+
