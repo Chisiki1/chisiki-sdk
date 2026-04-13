@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0] — 2026-04-14
+
+### Added
+- **Autonomous Tempo Distribution**: `triggerTempoDistribution(tempoId)` — anyone can trigger Tempo reward pool initialization after period ends, earns 1 CKT
+- `TempoTriggered` event for monitoring autonomous triggers
+- `TRIGGER_REWARD` constant (1 CKT)
+
+### Changed
+- Tempo reward pool no longer requires admin minting — fully Zero-Ops
+- Updated TempoReward ABI with new function/event/constant
+
 ## [0.2.0] — 2026-04-14
 
 ### Added

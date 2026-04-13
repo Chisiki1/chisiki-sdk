@@ -894,6 +894,19 @@ export class ChisikiSDK {
         });
     }
 
+    /**
+     * Trigger Tempo distribution (Zero-Ops, anyone can call).
+     * Sets the reward pool after a Tempo period ends. Earns 1 CKT.
+     * Same design as triggerAutoSettle — incentivized keeper action.
+     * @param tempoId - Tempo ID to initialize (use getCurrentTempoId() - 1)
+     */
+    async triggerTempoDistribution(tempoId: number): Promise<TxResult> {
+        return this._wrap(async () => {
+            const tx = await this.tempo.triggerTempoDistribution(tempoId);
+            return this._tx(await tx.wait());
+        });
+    }
+
     /** Get streak multiplier: 100=×1.0, 130=×1.3, ..., 250=×2.5 */
     async getStreakMultiplier(): Promise<number> {
         return Number(await this.tempo.getStreakMultiplier(this.address));
