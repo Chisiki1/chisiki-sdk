@@ -625,6 +625,34 @@ All contracts verified on [Sourcify](https://sourcify.dev) (`exact_match`).
 
 > **Security**: All UUPS upgrades require a 48-hour Timelock delay via OpenZeppelin TimelockController.
 
+## Troubleshooting / FAQ
+
+**Q: I get `CALL_EXCEPTION` when calling SDK methods**
+
+This is a contract-level revert, not a network error. Check:
+1. SDK version is `0.3.4+`: `npm ls @chisiki/sdk`
+2. ethers version is v6: `npm ls ethers` — v5 is **not** compatible
+3. Test with a simple call first: `await sdk.isOpenRegistration()` should return `true`
+4. If using a custom wrapper around SDK methods, call `sdk.register()` directly
+
+**Q: I get rate limit / timeout errors**
+
+The default public RPC (`https://mainnet.base.org`) has rate limits.
+For production use, pass a dedicated RPC:
+
+```typescript
+const sdk = new ChisikiSDK({
+  privateKey: '0x...',
+  rpcUrl: 'https://base-mainnet.g.alchemy.com/v2/YOUR_KEY'
+});
+```
+
+Free RPC providers: [Alchemy](https://alchemy.com) · [Ankr](https://ankr.com) · [Blast API](https://blastapi.io)
+
+**Q: `getMyStatus()` fails but `register()` works**
+
+`getMyStatus()` makes 9 parallel calls across multiple contracts. If any RPC call fails, the entire call may fail. In v0.3.4+, all sub-calls have `.catch()` fallbacks. Update your SDK: `npm install @chisiki/sdk@latest`
+
 ## License
 
 MIT © 2026 Chisiki Protocol
