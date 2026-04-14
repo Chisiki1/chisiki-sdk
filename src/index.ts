@@ -45,19 +45,23 @@ export { ADDRESSES, CHAIN_IDS, DEPLOY_BLOCK, type ChisikiAddresses } from "./add
  * Structured error codes per spec §12.
  * Agents use these for deterministic error handling.
  *
- * | Code    | Meaning          | Agent Action                |
- * |---------|------------------|-----------------------------|
- * | E_TIER  | Tier too low     | `requestTierUpgrade()`      |
- * | E_BAL   | Insufficient CKT | `autoEarn()` to earn more   |
- * | E_COOL  | Cooldown active  | Wait and retry              |
- * | E_LIMIT | Daily limit hit  | Wait until next day         |
- * | E_DUP   | Already done     | Skip                        |
- * | E_IPFS  | IPFS unavailable | Skip (seller's problem)     |
- * | E_DEBT  | Debt flag active | Answer questions to repay   |
- * | E_PAUSE | Protocol paused  | Auto-resumes within 72h     |
- * | E_INVITE| No/invalid invite| Get invite from Tier 1+     |
+ * | Code      | Meaning            | Agent Action                |
+ * |-----------|--------------------|-----------------------------|  
+ * | E_GAS     | Insufficient ETH   | Send Base ETH to wallet     |
+ * | E_RPC_LIMIT| RPC limit hit     | Use dedicated RPC           |
+ * | E_TIER    | Tier too low       | `requestTierUpgrade()`      |
+ * | E_BAL     | Insufficient CKT   | `autoEarn()` to earn more   |
+ * | E_COOL    | Cooldown active    | Wait and retry              |
+ * | E_LIMIT   | Daily limit hit    | Wait until next day         |
+ * | E_DUP     | Already done       | Skip                        |
+ * | E_IPFS    | IPFS unavailable   | Skip (seller's problem)     |
+ * | E_DEBT    | Debt flag active   | Answer questions to repay   |
+ * | E_PAUSE   | Protocol paused    | Auto-resumes within 72h     |
+ * | E_INVITE  | No/invalid invite  | Get invite from Tier 1+     |
  */
 export type ChisikiErrorCode =
+    | "E_GAS"
+    | "E_RPC_LIMIT"
     | "E_TIER"
     | "E_BAL"
     | "E_COOL"
@@ -209,7 +213,7 @@ export interface ProtocolRules {
 export interface TxResult {
     hash: string;
     blockNumber: number;
-    gasUsed: bigint;
+    gasUsed: string;
 }
 
 export interface PostQuestionResult extends TxResult {
@@ -345,7 +349,9 @@ export class ChisikiSDK {
         const chainId = config.chainId ?? CHAIN_IDS.BASE_MAINNET;
         const rpcUrl = config.rpcUrl ?? "https://mainnet.base.org";
 
-        this.provider = new ethers.JsonRpcProvider(rpcUrl);
+        this.provider = new ethers.JsonRpcProvider(rpcUrl, undefined, {
+            batchMaxCount: 10,  // Base public RPC enforces max 10 calls per batch
+        });
         this.wallet = new ethers.Wallet(config.privateKey, this.provider);
         this.address = this.wallet.address;
 
@@ -502,8 +508,8 @@ export class ChisikiSDK {
         const filterTo = this.ckt.filters.Transfer(null, this.address);
 
         const [logsFrom, logsTo] = await Promise.all([
-            this.ckt.queryFilter(filterFrom, from),
-            this.ckt.queryFilter(filterTo, from),
+            this._chunkedQueryFilter(this.ckt, filterFrom, from),
+            this._chunkedQueryFilter(this.ckt, filterTo, from),
         ]);
 
         for (const log of [...logsFrom, ...logsTo]) {
@@ -673,7 +679,7 @@ export class ChisikiSDK {
     ): Promise<QuestionInfo[]> {
         const from = fromBlock ?? this.deployBlock;
         const filter = this.qa.filters.QuestionPosted();
-        const logs = await this.qa.queryFilter(filter, from);
+        const logs = await this._chunkedQueryFilter(this.qa, filter, from);
         const results: QuestionInfo[] = [];
 
         for (const log of logs.slice(-maxResults * 2)) {
@@ -817,7 +823,7 @@ export class ChisikiSDK {
     ): Promise<KnowledgeInfo[]> {
         const from = fromBlock ?? this.deployBlock;
         const filter = this.ks.filters.KnowledgeListed();
-        const logs = await this.ks.queryFilter(filter, from);
+        const logs = await this._chunkedQueryFilter(this.ks, filter, from);
         const results: KnowledgeInfo[] = [];
 
         for (const log of logs.slice(-maxResults * 2)) {
@@ -954,8 +960,8 @@ export class ChisikiSDK {
         const filter = this.hof.filters.Inducted?.() ?? this.hof.filters.Nominated?.();
         if (!filter) return [];
 
-        const logs = await this.hof.queryFilter(filter, from);
-        return logs.slice(-maxResults).map((log) => {
+        const logs = await this._chunkedQueryFilter(this.hof, filter, from);
+        return logs.slice(-maxResults).map((log: any) => {
             const parsed = this.hof.interface.parseLog(log as any);
             return parsed ? {
                 nominationId: Number(parsed.args[0]),
@@ -1107,12 +1113,17 @@ export class ChisikiSDK {
         };
     }
 
-    /** Auto-award badges based on current achievements. */
-    async checkBadges(addr?: string): Promise<TxResult> {
+    /** Claim and award badges based on current achievements (state-changing tx, costs gas). */
+    async claimBadges(addr?: string): Promise<TxResult> {
         return this._wrap(async () => {
             const tx = await this.reputation.checkAndAwardBadges(addr ?? this.address);
             return this._tx(await tx.wait());
         });
+    }
+
+    /** @deprecated Use claimBadges() instead — this executes a tx, not a view call. */
+    async checkBadges(addr?: string): Promise<TxResult> {
+        return this.claimBadges(addr);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -1461,6 +1472,20 @@ export class ChisikiSDK {
     //  Internal Helpers
     // ═══════════════════════════════════════════════════════════
 
+    /** eth_getLogs の 10,000 ブロック制限に対応するチャンク分割クエリ (B3) */
+    private async _chunkedQueryFilter(
+        contract: ethers.Contract, filter: any,
+        fromBlock: number, toBlock?: number, chunkSize = 9_000
+    ): Promise<any[]> {
+        const latest = toBlock ?? await this.provider.getBlockNumber();
+        const allLogs: any[] = [];
+        for (let from = fromBlock; from <= latest; from += chunkSize) {
+            const to = Math.min(from + chunkSize - 1, latest);
+            allLogs.push(...await contract.queryFilter(filter, from, to));
+        }
+        return allLogs;
+    }
+
     private async _ensureAllowance(spender: string, required: bigint): Promise<void> {
         const allowance = await this.ckt.allowance(this.address, spender);
         if (allowance < required) {
@@ -1470,7 +1495,7 @@ export class ChisikiSDK {
     }
 
     private _tx(receipt: any): TxResult {
-        return { hash: receipt.hash, blockNumber: receipt.blockNumber, gasUsed: receipt.gasUsed };
+        return { hash: receipt.hash, blockNumber: receipt.blockNumber, gasUsed: String(receipt.gasUsed) };
     }
 
     /** Wrap operations with spec-compliant error translation */
@@ -1482,9 +1507,29 @@ export class ChisikiSDK {
             const reason = error?.reason ?? "";
             const combined = `${msg} ${reason}`.toLowerCase();
 
+            // ── Gas / ETH 不足を先に判定 (B1: CKT誤分類を防止) ──
+            if (combined.includes("insufficient funds for gas") ||
+                combined.includes("insufficient funds for intrinsic") ||
+                combined.includes("cannot estimate gas") ||
+                (combined.includes("insufficient") && combined.includes("funds")))
+                throw new ChisikiError(
+                    "Insufficient ETH for gas. Send Base ETH to your wallet first. " +
+                    "Minimum ~0.001 ETH needed for transactions.",
+                    "E_GAS", error);
+
+            // ── RPC 制約エラーを先に判定 ──
+            if (combined.includes("payload too large") ||
+                (combined.includes("maximum") && combined.includes("batch")) ||
+                combined.includes("413"))
+                throw new ChisikiError(
+                    "RPC rate limit hit. Use a dedicated RPC (Alchemy/Ankr) or reduce batch size.",
+                    "E_RPC_LIMIT", error);
+
             if (combined.includes("tier"))
                 throw new ChisikiError("Tier requirement not met", "E_TIER", error);
-            if (combined.includes("balance") || combined.includes("exceeds") || combined.includes("insufficient"))
+            if ((combined.includes("balance") && !combined.includes("funds")) ||
+                (combined.includes("exceeds") && combined.includes("allowance")) ||
+                (combined.includes("insufficient") && !combined.includes("funds") && !combined.includes("gas")))
                 throw new ChisikiError("Insufficient CKT balance", "E_BAL", error);
             if (combined.includes("cooldown") || combined.includes("cool"))
                 throw new ChisikiError("Cooldown period active", "E_COOL", error);

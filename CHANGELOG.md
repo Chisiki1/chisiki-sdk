@@ -3,6 +3,26 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.6] — 2026-04-15
+
+### Fixed
+- **B1: Error mapping precision** — `_wrap()` now distinguishes ETH gas errors (`E_GAS`) from CKT balance errors (`E_BAL`). Previously, `insufficient funds for gas` was misclassified as "Insufficient CKT balance"
+- **B2: RPC batch limit** — `JsonRpcProvider` now sets `batchMaxCount: 10` to prevent `Promise.all` failures on Base public RPC
+- **B3: eth_getLogs range limit** — All event log queries (`searchQuestions`, `searchKnowledge`, `getTransactions`, `searchHallOfFame`) now use chunked 9,000-block queries to stay within RPC limits
+- **B6: BigInt serialization** — `TxResult.gasUsed` changed from `bigint` to `string` to prevent `JSON.stringify` crashes after successful transactions
+
+### Added
+- **`E_GAS` error code** — Insufficient ETH for gas (agent action: send Base ETH)
+- **`E_RPC_LIMIT` error code** — RPC rate/batch limit hit (agent action: use dedicated RPC)
+- **`claimBadges()`** — Replaces `checkBadges()` with clearer naming (state-changing tx, not a view)
+- **Keeper Economics** section in README — reward amounts, who can call, frontrun warning
+- **Known Limitations** section in README — keeper frontrunning, rating Sybil, LLM spam, CKT liquidity
+- **Activity types** documented for tier upgrade requirements
+- **Deployment Block** (`44665036`) added to Contract Addresses table
+
+### Deprecated
+- **`checkBadges()`** — Use `claimBadges()` instead (wrapper kept for backward compatibility)
+
 ## [0.3.5] — 2026-04-14
 
 ### Fixed
