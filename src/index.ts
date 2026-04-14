@@ -24,7 +24,7 @@
  */
 
 import { ethers } from "ethers";
-import { ADDRESSES, CHAIN_IDS, type ChisikiAddresses } from "./addresses";
+import { ADDRESSES, CHAIN_IDS, DEPLOY_BLOCK, type ChisikiAddresses } from "./addresses";
 
 import CKT_ABI from "./abi/CKT.json";
 import REGISTRY_ABI from "./abi/AgentRegistry.json";
@@ -35,7 +35,7 @@ import REP_ABI from "./abi/Reputation.json";
 import TEMPO_ABI from "./abi/TempoReward.json";
 import REPORT_ABI from "./abi/Report.json";
 
-export { ADDRESSES, CHAIN_IDS, type ChisikiAddresses } from "./addresses";
+export { ADDRESSES, CHAIN_IDS, DEPLOY_BLOCK, type ChisikiAddresses } from "./addresses";
 
 // ────────────────────────────────────────────────────────────
 // Error System (spec §12 compliant)
@@ -339,6 +339,7 @@ export class ChisikiSDK {
     public readonly reputation: ethers.Contract;
     public readonly tempo: ethers.Contract;
     public readonly report: ethers.Contract;
+    public readonly deployBlock: number;
 
     constructor(config: ChisikiConfig) {
         const chainId = config.chainId ?? CHAIN_IDS.BASE_MAINNET;
@@ -356,6 +357,7 @@ export class ChisikiSDK {
             );
         }
         this.addresses = { ...defaults, ...config.addresses } as ChisikiAddresses;
+        this.deployBlock = DEPLOY_BLOCK[chainId] ?? 0;
 
         this.ckt = new ethers.Contract(this.addresses.ckt, CKT_ABI, this.wallet);
         this.registry = new ethers.Contract(this.addresses.agentRegistry, REGISTRY_ABI, this.wallet);
@@ -491,7 +493,8 @@ export class ChisikiSDK {
      * @param fromBlock - Start block (default: deployment block)
      * @param maxResults - Maximum results (default: 100)
      */
-    async getTransactions(fromBlock = 0, maxResults = 100): Promise<TransactionRecord[]> {
+    async getTransactions(fromBlock?: number, maxResults = 100): Promise<TransactionRecord[]> {
+        const from = fromBlock ?? this.deployBlock;
         const results: TransactionRecord[] = [];
 
         // CKT transfers involving this address
@@ -499,8 +502,8 @@ export class ChisikiSDK {
         const filterTo = this.ckt.filters.Transfer(null, this.address);
 
         const [logsFrom, logsTo] = await Promise.all([
-            this.ckt.queryFilter(filterFrom, fromBlock),
-            this.ckt.queryFilter(filterTo, fromBlock),
+            this.ckt.queryFilter(filterFrom, from),
+            this.ckt.queryFilter(filterTo, from),
         ]);
 
         for (const log of [...logsFrom, ...logsTo]) {
@@ -666,10 +669,11 @@ export class ChisikiSDK {
      * @param maxResults - Max results (default: 50)
      */
     async searchQuestions(
-        tags?: string, onlyUnsettled = true, fromBlock = 0, maxResults = 50
+        tags?: string, onlyUnsettled = true, fromBlock?: number, maxResults = 50
     ): Promise<QuestionInfo[]> {
+        const from = fromBlock ?? this.deployBlock;
         const filter = this.qa.filters.QuestionPosted();
-        const logs = await this.qa.queryFilter(filter, fromBlock);
+        const logs = await this.qa.queryFilter(filter, from);
         const results: QuestionInfo[] = [];
 
         for (const log of logs.slice(-maxResults * 2)) {
@@ -809,10 +813,11 @@ export class ChisikiSDK {
      * @param maxResults - Max results (default: 50)
      */
     async searchKnowledge(
-        tags?: string, fromBlock = 0, maxResults = 50
+        tags?: string, fromBlock?: number, maxResults = 50
     ): Promise<KnowledgeInfo[]> {
+        const from = fromBlock ?? this.deployBlock;
         const filter = this.ks.filters.KnowledgeListed();
-        const logs = await this.ks.queryFilter(filter, fromBlock);
+        const logs = await this.ks.queryFilter(filter, from);
         const results: KnowledgeInfo[] = [];
 
         for (const log of logs.slice(-maxResults * 2)) {
@@ -944,11 +949,12 @@ export class ChisikiSDK {
      * @param fromBlock - Start block
      * @param maxResults - Max results (default: 50)
      */
-    async searchHallOfFame(fromBlock = 0, maxResults = 50): Promise<any[]> {
+    async searchHallOfFame(fromBlock?: number, maxResults = 50): Promise<any[]> {
+        const from = fromBlock ?? this.deployBlock;
         const filter = this.hof.filters.Inducted?.() ?? this.hof.filters.Nominated?.();
         if (!filter) return [];
 
-        const logs = await this.hof.queryFilter(filter, fromBlock);
+        const logs = await this.hof.queryFilter(filter, from);
         return logs.slice(-maxResults).map((log) => {
             const parsed = this.hof.interface.parseLog(log as any);
             return parsed ? {

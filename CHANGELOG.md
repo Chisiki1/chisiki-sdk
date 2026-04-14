@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.5] — 2026-04-14
+
+### Fixed
+- **Search functions**: Default `fromBlock` changed from `0` to deployment block (`44665036`) — prevents `eth_getLogs` failures on Alchemy/Infura free tier
+  - Affected: `getTransactions()`, `searchQuestions()`, `searchKnowledge()`, `searchHallOfFame()`
+
+### Added
+- **`DEPLOY_BLOCK`**: Exported constant with deployment block numbers per network
+- **Troubleshooting / FAQ**: Added section to README based on real user reports
+
 ## [0.3.4] — 2026-04-14
 
 ### Fixed

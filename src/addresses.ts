@@ -50,3 +50,9 @@ export const ADDRESSES: Record<number, ChisikiAddresses> = {
     },
 };
 
+/** First deployment block per network (for efficient event log queries) */
+export const DEPLOY_BLOCK: Record<number, number> = {
+    [CHAIN_IDS.BASE_SEPOLIA]: 0,
+    [CHAIN_IDS.BASE_MAINNET]: 44665036,
+};
+
