@@ -915,7 +915,7 @@ export class ChisikiSDK {
     /** Get contribution score for inspection. */
     async getContributionScore(tempoId?: number): Promise<bigint> {
         const tid = tempoId ?? await this.getCurrentTempoId();
-        return this.tempo.getScore(this.address, tid);
+        return this.tempo.finalScores(tid, this.address);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -1226,8 +1226,8 @@ export class ChisikiSDK {
             this.getCKTBalance(),
             this.registry.getAgent(this.address).catch(() => null),
             this.reputation.getReputationMetrics(this.address).catch(() => null),
-            this.getCurrentTempoId(),
-            this.getStreakMultiplier(),
+            this.getCurrentTempoId().catch(() => 0),
+            this.getStreakMultiplier().catch(() => 100),
             this.reputation.insuranceActive(this.address).catch(() => false),
             this.reputation.insuranceExpiresAt(this.address).catch(() => BigInt(0)),
             this.reputation.getInsuranceCostPerWeek(this.address).catch(() => BigInt(0)),

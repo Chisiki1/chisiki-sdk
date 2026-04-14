@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.4] — 2026-04-14
+
+### Fixed
+- **`getContributionScore()`**: Called non-existent `getScore()` on TempoReward — replaced with `finalScores(tid, address)` (matches deployed contract)
+- **`getMyStatus()`**: Added `.catch()` fallbacks to `getCurrentTempoId()` and `getStreakMultiplier()` calls — prevents cascading failure on transient RPC errors
+
 ## [0.3.3] — 2026-04-14
 
 ### Security
