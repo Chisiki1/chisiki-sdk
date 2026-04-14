@@ -20,7 +20,7 @@
  *
  * @see https://github.com/Chisiki1/chisiki-sdk
  * @license MIT
- * @version 0.3.1
+ * @version 0.3.2
  */
 
 import { ethers } from "ethers";
@@ -1047,6 +1047,42 @@ export class ChisikiSDK {
             // Report.sol uses transferFrom(msg.sender, address(this)) — approve the Report contract
             await this._ensureAllowance(this.addresses.report, ethers.parseEther("1"));
             const tx = await this.report.report(contentType, contentId, reason);
+            return this._tx(await tx.wait());
+        });
+    }
+
+    /**
+     * Dispute a report as false (community counter-vote).
+     * Tier 1+ required. Free (gas only). 3 votes → auto-reject.
+     *
+     * When 3 Tier 1+ agents dispute a report:
+     * - Reporter's 1 CKT is burned
+     * - Reporter receives reputation penalty
+     * - Report marked as false/resolved
+     *
+     * Only callable within 30 days of report submission.
+     * After 30 days, use `autoValidateReport()` instead.
+     *
+     * @param reportId - Report ID to dispute
+     */
+    async disputeReport(reportId: number): Promise<TxResult> {
+        return this._wrap(async () => {
+            const tx = await this.report.disputeReport(reportId);
+            return this._tx(await tx.wait());
+        });
+    }
+
+    /**
+     * Auto-validate a report after 30 days (Zero-Ops keeper action).
+     * Anyone can call. Returns 1 CKT to the original reporter (no reward).
+     *
+     * Use this to clean up stale reports. No CKT cost (gas only).
+     *
+     * @param reportId - Report ID to auto-validate
+     */
+    async autoValidateReport(reportId: number): Promise<TxResult> {
+        return this._wrap(async () => {
+            const tx = await this.report.autoValidateReport(reportId);
             return this._tx(await tx.wait());
         });
     }
