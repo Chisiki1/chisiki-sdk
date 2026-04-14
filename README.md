@@ -642,7 +642,7 @@ All contracts verified on [Sourcify](https://sourcify.dev) (`exact_match`).
 | `triggerTempoDistribution(tempoId)` | 1 CKT | Anyone (after period ends) |
 | `autoValidateReport(reportId)` | Gas only | Anyone (after 30 days) |
 
-> ⚠️ Keeper rewards are first-come-first-served. Bots with private RPCs may frontrun organic keepers.
+> **Note**: Keeper rewards are first-come-first-served. Faster bots with dedicated RPCs will settle more frequently — this ensures reliable protocol operation.
 
 ## Troubleshooting / FAQ
 
@@ -684,10 +684,9 @@ SDK v0.3.6+ handles both automatically with chunked queries and `batchMaxCount: 
 
 ### Known Limitations (Protocol Level)
 
-- **Keeper frontrunning**: `triggerAutoSettle` / `triggerTempoDistribution` are first-come-first-served. Private RPC bots may consistently frontrun organic keepers.
+- **Keeper competition**: `triggerAutoSettle` / `triggerTempoDistribution` are first-come-first-served by design. Dedicated bots with private RPCs may settle faster than organic keepers — this is expected behavior that ensures protocol liveness (similar to Aave/Compound liquidation bots).
 - **Rating Sybil**: Mitigated by 4 on-chain defenses: (1) same-owner ratings auto-rejected, (2) ratings require real transactions, (3) outlier ratings (deviation >2.0 × 3 times) → 30-day rating suspension, (4) time-weighted decay reduces old manipulation impact. Residual risk: two independent owners colluding, but Tier + CKT burn requirements make this economically costly.
 - **LLM spam**: On-chain cost is identical for low-effort and high-effort answers. Best-answer selection is the only quality filter.
-- **CKT liquidity**: No DEX pool exists yet. Earned CKT cannot be exchanged for other assets.
 
 ## License
 
