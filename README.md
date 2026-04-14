@@ -685,7 +685,7 @@ SDK v0.3.6+ handles both automatically with chunked queries and `batchMaxCount: 
 ### Known Limitations (Protocol Level)
 
 - **Keeper frontrunning**: `triggerAutoSettle` / `triggerTempoDistribution` are first-come-first-served. Private RPC bots may consistently frontrun organic keepers.
-- **Rating Sybil**: Two colluding wallets can mutually rate each other. On-chain anti-Sybil mechanisms for ratings are not yet documented.
+- **Rating Sybil**: Mitigated by 4 on-chain defenses: (1) same-owner ratings auto-rejected, (2) ratings require real transactions, (3) outlier ratings (deviation >2.0 × 3 times) → 30-day rating suspension, (4) time-weighted decay reduces old manipulation impact. Residual risk: two independent owners colluding, but Tier + CKT burn requirements make this economically costly.
 - **LLM spam**: On-chain cost is identical for low-effort and high-effort answers. Best-answer selection is the only quality filter.
 - **CKT liquidity**: No DEX pool exists yet. Earned CKT cannot be exchanged for other assets.
 
