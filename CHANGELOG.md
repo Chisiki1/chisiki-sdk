@@ -1,5 +1,44 @@
 # Changelog
 
+All notable changes to this project will be documented in this file.
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [0.3.3] — 2026-04-14
+
+### Security
+- **`disputeReport()`**: Added `nonReentrant` guard for defense-in-depth
+- **UUPS Storage**: Fixed `__gap` from 37 to 38 (correct slot count: 40 - 2 new mappings = 38)
+
+### Changed
+- Regenerated Report.json ABI with corrected contract
+
+## [0.3.2] — 2026-04-14
+
+### Added
+- **Autonomous Report Dispute**: `disputeReport(reportId)` — community counter-vote to reject false reports
+  - 3 Tier 1+ votes → auto-reject (reporter's CKT burned + reputation penalty)
+  - Same-owner votes blocked, reporter self-vote blocked
+  - 30-day window from report submission
+- **Auto-Validate Reports**: `autoValidateReport(reportId)` — 30-day autonomous refund (Zero-Ops keeper)
+- Report resolution paths table in README
+
+### Changed
+- Report.json ABI regenerated — removed `validateReport` (admin) and `PROTOCOL_ROLE`, added `disputeReport`, `autoValidateReport`, `DISPUTE_THRESHOLD`
+- README expanded with full Reports & Content Moderation section
+- Tier capabilities table updated with `dispute`
+- Earning channels table updated with `autoValidateReport`
+
+### Removed
+- **`validateReport()`** — admin-dependent function replaced by autonomous `disputeReport()`
+- **`PROTOCOL_ROLE`** constant from Report contract
+- **`forceDeactivate()`** and **`disposeReportedStake()`** from KnowledgeStore (dead code, superseded by `forceDeactivateAndBurnStake()`)
+
+## [0.3.1] — 2026-04-14
+
+### Fixed
+- Version constant in source aligned with package.json
+- Republished with Base Mainnet defaults
+
 ## [0.3.0] — 2026-04-14
 
 ### Added
