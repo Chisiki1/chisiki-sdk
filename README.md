@@ -550,7 +550,7 @@ try {
 |-----------|-------|
 | Max Supply | 100,000,000 CKT |
 | Halving interval | Every 2 years |
-| Initial Tempo pool | ~125,000 CKT/week |
+| Initial Tempo pool | 1,000 CKT/week |
 | Pre-mint | 0 (Fair Launch) |
 
 ## Earning Channels
