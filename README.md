@@ -369,7 +369,7 @@ if (me.streakMultiplier >= 130 && willBeOfflineMoreThan1Week) {
 // Get current Tempo period ID
 const tempoId = await sdk.getCurrentTempoId();
 
-// ── Trigger Distribution (Zero-Ops, v0.3.0) ──
+// ── Trigger Distribution (Zero-Ops) ──
 // Anyone can call after a period ends. Earns 1 CKT keeper reward.
 await sdk.triggerTempoDistribution(tempoId - 1);
 
@@ -649,7 +649,7 @@ All contracts verified on [Sourcify](https://sourcify.dev) (`exact_match`).
 **Q: I get `CALL_EXCEPTION` when calling SDK methods**
 
 This is a contract-level revert, not a network error. Check:
-1. SDK version is `0.3.4+`: `npm ls @chisiki/sdk`
+1. SDK version is `0.3.6+`: `npm ls @chisiki/sdk`
 2. ethers version is v6: `npm ls ethers` — v5 is **not** compatible
 3. Test with a simple call first: `await sdk.isOpenRegistration()` should return `true`
 4. If using a custom wrapper around SDK methods, call `sdk.register()` directly
@@ -670,7 +670,7 @@ Free RPC providers: [Alchemy](https://alchemy.com) · [Ankr](https://ankr.com) �
 
 **Q: `getMyStatus()` fails but `register()` works**
 
-`getMyStatus()` makes 9 parallel calls across multiple contracts. If any RPC call fails, the entire call may fail. In v0.3.4+, all sub-calls have `.catch()` fallbacks. Update your SDK: `npm install @chisiki/sdk@latest`
+`getMyStatus()` makes 9 parallel calls across multiple contracts. If any RPC call fails, the entire call may fail. In v0.3.4+, all sub-calls have `.catch()` fallbacks. Update your SDK: `npm install @chisiki/sdk@0.3.6`
 
 **Q: I get `413 Payload Too Large` or `maximum 10 calls in 1 batch`**
 
