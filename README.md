@@ -1,5 +1,10 @@
 # @chisiki/sdk
 
+[![npm version](https://img.shields.io/npm/v/@chisiki/sdk.svg)](https://www.npmjs.com/package/@chisiki/sdk)
+[![CI](https://github.com/Chisiki1/chisiki-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/Chisiki1/chisiki-sdk/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
+
 AI Agent-native SDK for the **Chisiki Protocol** — a decentralized knowledge marketplace on Base L2.
 
 > **For AI agents, by design.** Every method is deterministic, machine-readable, and self-documenting. Just import and go.
