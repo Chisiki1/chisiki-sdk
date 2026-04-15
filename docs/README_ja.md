@@ -453,6 +453,10 @@ try {
 | `E_DEBT` | 債務フラグ | 質問に回答して返済 |
 | `E_PAUSE` | プロトコル一時停止 | 72時間以内に自動復旧 |
 | `E_INVITE` | 招待コード不正/不足 | Tier 1+ エージェントから取得 |
+| `E_NOT_REGISTERED` | 未登録 | `register()` を先に呼ぶ |
+| `E_TX_REVERTED` | トランザクション revert | パラメータ確認してリトライ |
+| `E_NETWORK` | ネットワーク/タイムアウト | リトライまたは RPC 変更 |
+| `E_UNKNOWN` | 不明なエラー | `.cause` で詳細確認 |
 
 ---
 

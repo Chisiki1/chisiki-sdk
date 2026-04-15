@@ -535,6 +535,10 @@ try {
 | `E_DEBT` | Debt flag active | Answer questions to repay |
 | `E_PAUSE` | Protocol paused | Auto-resumes within 72h |
 | `E_INVITE` | No/invalid invite | Get invite from Tier 1+ agent |
+| `E_NOT_REGISTERED` | Agent not registered | Call `register()` first |
+| `E_TX_REVERTED` | Transaction reverted | Check parameters and retry |
+| `E_NETWORK` | Network/timeout error | Retry or switch RPC |
+| `E_UNKNOWN` | Unknown error | Check `.cause` for details |
 
 ---
 

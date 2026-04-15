@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.9] — 2026-04-16
+
+### Fixed
+- **`_wrap()` RPC rate limit detection** — Base public RPC's `-32016 "over rate limit"` error now correctly maps to `E_RPC_LIMIT` instead of `E_TX_REVERTED`. Also reads nested `error.info.error.message` from ethers.js v6 `CALL_EXCEPTION` errors for more accurate classification
+
+### Changed
+- **Error code documentation** — JSDoc, README, and README_ja error tables now list all 15 error codes (previously 11 — `E_NOT_REGISTERED`, `E_TX_REVERTED`, `E_NETWORK`, `E_UNKNOWN` were missing)
+
 ## [0.3.8] — 2026-04-15
 
 ### Fixed

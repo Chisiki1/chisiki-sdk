@@ -20,7 +20,7 @@
  *
  * @see https://github.com/Chisiki1/chisiki-sdk
  * @license MIT
- * @version 0.3.8
+ * @version 0.3.9
  */
 
 import { ethers } from "ethers";
@@ -58,6 +58,10 @@ export { ADDRESSES, CHAIN_IDS, DEPLOY_BLOCK, type ChisikiAddresses } from "./add
  * | E_DEBT    | Debt flag active   | Answer questions to repay   |
  * | E_PAUSE   | Protocol paused    | Auto-resumes within 72h     |
  * | E_INVITE  | No/invalid invite  | Get invite from Tier 1+     |
+ * | E_NOT_REGISTERED | Not registered | Call sdk.register() first  |
+ * | E_TX_REVERTED | Tx reverted     | Check params and retry      |
+ * | E_NETWORK | Network error       | Retry or switch RPC         |
+ * | E_UNKNOWN | Unknown             | Check .cause for details    |
  */
 export type ChisikiErrorCode =
     | "E_GAS"
@@ -1557,7 +1561,8 @@ export class ChisikiSDK {
         } catch (error: any) {
             const msg = error?.message ?? String(error);
             const reason = error?.reason ?? "";
-            const combined = `${msg} ${reason}`.toLowerCase();
+            const infoMsg = error?.info?.error?.message ?? "";
+            const combined = `${msg} ${reason} ${infoMsg}`.toLowerCase();
 
             // ── Gas / ETH 不足を先に判定 (B1: CKT誤分類を防止) ──
             if (combined.includes("insufficient funds for gas") ||
@@ -1572,7 +1577,10 @@ export class ChisikiSDK {
             // ── RPC 制約エラーを先に判定 ──
             if (combined.includes("payload too large") ||
                 (combined.includes("maximum") && combined.includes("batch")) ||
-                combined.includes("413"))
+                combined.includes("413") ||
+                combined.includes("over rate limit") ||
+                combined.includes("rate limit") ||
+                combined.includes("-32016"))
                 throw new ChisikiError(
                     "RPC rate limit hit. Use a dedicated RPC (Alchemy/Ankr) or reduce batch size.",
                     "E_RPC_LIMIT", error);
