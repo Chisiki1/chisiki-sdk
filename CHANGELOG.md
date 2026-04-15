@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.7] — 2026-04-15
+
+### Fixed
+- **`autoEarn()` fromBlock=0 hardcode** — `searchQuestions()` calls inside `autoEarn()` were hardcoding `fromBlock=0`, bypassing the v0.3.5 `deployBlock` fix. `autoEarn()` now uses `deployBlock` as intended, making it work on public RPCs
+
+### Added
+- **`searchQuestionsDirect()`** — Direct question search using on-chain counter (`nextQuestionId` + `questions(i)`). No `eth_getLogs`, works on all RPCs including free tiers
+- **`batchSettle(questionIds)`** — Batch settle multiple expired questions sequentially. Returns `{ settled, failed }` for keeper efficiency
+- **Method tier requirements table** in README — shows minimum Tier for each SDK method
+- **FAQ**: `getMyStatus()` after `register()` timing, `getRules()` CALL_EXCEPTION troubleshooting
+- **Known Limitations**: No IPFS CID validation, no content hash on QAEscrow
+
 ## [0.3.6] — 2026-04-15
 
 ### Fixed

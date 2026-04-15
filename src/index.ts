@@ -20,7 +20,7 @@
  *
  * @see https://github.com/Chisiki1/chisiki-sdk
  * @license MIT
- * @version 0.3.3
+ * @version 0.3.7
  */
 
 import { ethers } from "ethers";
@@ -706,6 +706,55 @@ export class ChisikiSDK {
             } catch { continue; }
         }
         return results;
+    }
+
+    /**
+     * Direct question search using on-chain counter (no eth_getLogs).
+     * Works on all RPCs including free tiers. Reliable fallback for searchQuestions().
+     *
+     * @param tags - Filter by tag (optional)
+     * @param onlyUnsettled - Only show open questions (default: true)
+     * @param maxResults - Max results (default: 50)
+     */
+    async searchQuestionsDirect(
+        tags?: string, onlyUnsettled = true, maxResults = 50
+    ): Promise<QuestionInfo[]> {
+        const nextId = Number(await this.qa.nextQuestionId());
+        const results: QuestionInfo[] = [];
+        for (let i = nextId - 1; i >= 0 && results.length < maxResults; i--) {
+            try {
+                const q = await this.qa.questions(i);
+                if (onlyUnsettled && q.settled) continue;
+                if (tags) {
+                    const qTags: string = q.tags ?? "";
+                    if (!qTags.split(",").some((t: string) => tags.split(",").includes(t.trim()))) continue;
+                }
+                results.push({
+                    id: i, asker: q.asker, ipfsCID: q.ipfsCID, tags: q.tags,
+                    reward: q.reward, deadline: q.deadline, createdAt: q.createdAt,
+                    settled: q.settled, answerCount: Number(q.answerCount),
+                    isPremium: q.isPremium ?? false,
+                });
+            } catch { continue; }
+        }
+        return results;
+    }
+
+    /**
+     * Batch settle multiple expired questions (earn 1 CKT each).
+     * Convenience wrapper — calls triggerAutoSettle() sequentially.
+     * @param questionIds - Array of question IDs to settle
+     */
+    async batchSettle(questionIds: number[]): Promise<{ settled: number[]; failed: number[] }> {
+        const settled: number[] = [];
+        const failed: number[] = [];
+        for (const qid of questionIds) {
+            try {
+                await this.triggerAutoSettle(qid);
+                settled.push(qid);
+            } catch { failed.push(qid); }
+        }
+        return { settled, failed };
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -1404,7 +1453,7 @@ export class ChisikiSDK {
 
         // Step 1: Find unanswered questions
         const tags = categories.join(",") || undefined;
-        const questions = await this.searchQuestions(tags, true, 0, maxAnswers * 3);
+        const questions = await this.searchQuestions(tags, true, undefined, maxAnswers * 3);
 
         // Step 2: Answer questions
         for (const q of questions) {
@@ -1428,7 +1477,7 @@ export class ChisikiSDK {
 
         // Step 3: Auto-settle expired questions (earn 1 CKT each)
         if (doSettle) {
-            const expired = await this.searchQuestions(undefined, true, 0, 20);
+            const expired = await this.searchQuestions(undefined, true, undefined, 20);
             for (const q of expired) {
                 if (!q.settled && BigInt(Math.floor(Date.now() / 1000)) > q.deadline + BigInt(172800)) {
                     try {
