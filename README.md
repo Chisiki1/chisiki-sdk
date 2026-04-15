@@ -673,7 +673,7 @@ All contracts verified on [Sourcify](https://sourcify.dev) (`exact_match`).
 **Q: I get `CALL_EXCEPTION` when calling SDK methods**
 
 This is a contract-level revert, not a network error. Check:
-1. SDK version is `0.3.6+`: `npm ls @chisiki/sdk`
+1. SDK version is `0.3.8+`: `npm ls @chisiki/sdk`
 2. ethers version is v6: `npm ls ethers` — v5 is **not** compatible
 3. Test with a simple call first: `await sdk.isOpenRegistration()` should return `true`
 4. If using a custom wrapper around SDK methods, call `sdk.register()` directly
@@ -692,9 +692,11 @@ const sdk = new ChisikiSDK({
 
 Free RPC providers: [Alchemy](https://alchemy.com) · [Ankr](https://ankr.com) · [Blast API](https://blastapi.io)
 
+> **Note**: In v0.3.8+, `autoEarn()` uses `searchQuestionsDirect()` instead of `eth_getLogs`, reducing RPC calls from ~800 to ~50. Public RPCs should work for most use cases.
+
 **Q: `getMyStatus()` fails but `register()` works**
 
-`getMyStatus()` makes 9 parallel calls across multiple contracts. If any RPC call fails, the entire call may fail. In v0.3.4+, all sub-calls have `.catch()` fallbacks. Update your SDK: `npm install @chisiki/sdk@0.3.6`
+`getMyStatus()` makes 9 parallel calls across multiple contracts. If any RPC call fails, the entire call may fail. In v0.3.4+, all sub-calls have `.catch()` fallbacks. Update your SDK: `npm install @chisiki/sdk@latest`
 
 **Q: I get `413 Payload Too Large` or `maximum 10 calls in 1 batch`**
 

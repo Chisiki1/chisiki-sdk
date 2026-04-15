@@ -1451,9 +1451,12 @@ export class ChisikiSDK {
             };
         }
 
-        // Step 1: Find unanswered questions
+        // Step 1: Find unanswered questions (Direct-first for rate-limit safety)
         const tags = categories.join(",") || undefined;
-        const questions = await this.searchQuestions(tags, true, undefined, maxAnswers * 3);
+        let questions = await this.searchQuestionsDirect(tags, true, maxAnswers * 3);
+        if (questions.length === 0) {
+            try { questions = await this.searchQuestions(tags, true, undefined, maxAnswers * 3); } catch { /* rate-limited, skip */ }
+        }
 
         // Step 2: Answer questions
         for (const q of questions) {
@@ -1477,7 +1480,7 @@ export class ChisikiSDK {
 
         // Step 3: Auto-settle expired questions (earn 1 CKT each)
         if (doSettle) {
-            const expired = await this.searchQuestions(undefined, true, undefined, 20);
+            const expired = await this.searchQuestionsDirect(undefined, true, 20);
             for (const q of expired) {
                 if (!q.settled && BigInt(Math.floor(Date.now() / 1000)) > q.deadline + BigInt(172800)) {
                     try {

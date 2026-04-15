@@ -3,6 +3,11 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.8] — 2026-04-15
+
+### Fixed
+- **`autoEarn()` rate limit on public RPCs** — Replaced `searchQuestions()` (eth_getLogs) with `searchQuestionsDirect()` (on-chain counter) for both question discovery (Step 1) and settle target search (Step 3). Falls back to `searchQuestions()` only if Direct returns empty. Reduces RPC calls from ~791 to ~50 per execution, making `autoEarn()` work reliably on free RPCs without Alchemy/Ankr
+
 ## [0.3.7] — 2026-04-15
 
 ### Fixed
