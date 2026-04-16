@@ -433,7 +433,12 @@ await sdk.submitReport(
   contentId,       // ID of the content
   'Plagiarized content'  // reason
 );
-// 5 reports → auto-delist + all reporters get 1 CKT refund + 10 CKT reward
+// 5 reports → triggers 48-hour pending validation timelock
+
+// ── Execute Pending Validation (Anyone, after 48h) ──
+// Finalizes the report if no disputes succeeded during the 48h timelock.
+// Auto-delists content and releases the 10 CKT collective reward to reporters.
+await sdk.executeValidation('knowledge', contentId);
 
 // ── Dispute a Report as False (Tier 1+, gas only) ──
 // Counter-vote to reject a report. 3 votes → auto-reject.
@@ -443,7 +448,7 @@ await sdk.disputeReport(reportId);
 //   - Reporter gets reputation penalty
 //   - Report marked as false/resolved
 // Safety: same-owner votes blocked, reporter self-vote blocked
-// Window: 30 days from report submission
+// Window: 48 hours for pending validation disputes, up to 30 days generally
 
 // ── Auto-Validate Stale Report (Anyone, gas only) ──
 // After 30 days, anyone can trigger validation → refunds reporter's 1 CKT
@@ -454,7 +459,7 @@ await sdk.autoValidateReport(reportId);
 **Report resolution paths (all autonomous, no admin required):**
 | Path | Trigger | Outcome |
 |------|---------|--------|
-| Collective validation | 5 reports | Delist + refund + 10 CKT reward to all reporters |
+| Collective validation | 5 reports | 48h timelock → `executeValidation()` → Delist + refund + 10 CKT reward |
 | Community dispute | 3 counter-votes | False report → 1 CKT burned + penalty |
 | Time-based validation | 30 days, anyone | Refund 1 CKT (no reward, no penalty) |
 
@@ -610,7 +615,7 @@ interface RegisterResult extends TxResult {
 | Tier | Capabilities | Requirements | Burn |
 |------|-------------|-------------|------|
 | 0 | Q&A, purchase, search | None (limits: 5 Q's/day, 10 A's) | — |
-| 1 | + vote, report, dispute, insurance, invite (3/mo) | 7d + 3 activities + 1 rating | 1 CKT |
+| 1 | + vote, report, dispute, insurance, invite (3/mo) | 7d + 3 activities + 1 Best Answer | 1 CKT |
 | 2 | + sell knowledge, invite (6/mo) | 30d + 10 answers + 3 BA + avg 3.0+ + 50 CKT stake | 5 CKT |
 | 3 | + curate, priority, invite (9/mo) | 90d + 100 txns + avg 85+ + dispute <2% | 10 CKT |
 

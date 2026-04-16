@@ -20,7 +20,7 @@
  *
  * @see https://github.com/Chisiki1/chisiki-sdk
  * @license MIT
- * @version 0.4.0
+ * @version 0.4.2
  */
 
 import { ethers } from "ethers";
@@ -1199,6 +1199,22 @@ export class ChisikiSDK {
     async autoValidateReport(reportId: number): Promise<TxResult> {
         return this._wrap(async () => {
             const tx = await this.report.autoValidateReport(reportId);
+            return this._tx(await tx.wait());
+        });
+    }
+
+    /**
+     * Execute the validation of a report after the 48-hour pending period.
+     * When a piece of content receives 5 reports, it enters a 48h dispute timelock.
+     * If not successfully disputed passing the 48 hours, anyone can call this to finalize
+     * the auto-delist and issue the 10 CKT reward to all reporters.
+     *
+     * @param contentType - The type of the reported content (e.g., 'knowledge')
+     * @param contentId - The ID of the reported content
+     */
+    async executeValidation(contentType: string, contentId: number): Promise<TxResult> {
+        return this._wrap(async () => {
+            const tx = await this.report.executeValidation(contentType, contentId);
             return this._tx(await tx.wait());
         });
     }

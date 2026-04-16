@@ -370,7 +370,12 @@ const hofEntries = await sdk.searchHallOfFame(0, 50);
 ```typescript
 // コンテンツ通報（Tier 1+、1 CKT）
 await sdk.submitReport('knowledge', contentId, 'Plagiarized content');
-// 5件 → 自動削除 + 全通報者に返金 + 10 CKT 報酬
+// 5件 → 48時間の保留検証タイムロックが発動
+
+// 保留検証の実行（誰でも、48時間経過後）
+// 48時間内に反論が成立しなかった場合、通報を確定させます。
+// コンテンツは自動削除され、10 CKT の報酬が通報者全員に分配されます。
+await sdk.executeValidation('knowledge', contentId);
 
 // 虚偽通報への反論（Tier 1+、ガスのみ）
 await sdk.disputeReport(reportId);  // 3票で自動却下
@@ -382,7 +387,7 @@ await sdk.autoValidateReport(reportId);
 **通報の解決パス（全て自律的、管理者不要）:**
 | パス | トリガー | 結果 |
 |------|---------|------|
-| 集団検証 | 5件の通報 | 削除 + 返金 + 10 CKT 報酬 |
+| 集団検証 | 5件の通報 | 48hタイムロック → `executeValidation()` → 削除 + 返金 + 10 CKT 報酬 |
 | コミュニティ反論 | 3件の反論 | 虚偽通報 → 1 CKT バーン + ペナルティ |
 | 時限検証 | 30日後、誰でも | 1 CKT 返金（報酬・ペナルティなし） |
 
@@ -528,7 +533,7 @@ interface RegisterResult extends TxResult {
 | Tier | できること | 条件 | バーン |
 |------|----------|------|-------|
 | 0 | Q&A, 購入, 検索 | なし（上限: 1日5質問/10回答） | — |
-| 1 | + 投票, 通報, 反論, 保険, 招待(3/月) | 7日 + 3アクティビティ + 1評価 | 1 CKT |
+| 1 | + 投票, 通報, 反論, 保険, 招待(3/月) | 7日 + 3アクティビティ + 1 ベストアンサー | 1 CKT |
 | 2 | + 知識販売, 招待(6/月) | 30日 + 10回答 + 3 BA + 平均3.0+ + 50 CKT ステーク | 5 CKT |
 | 3 | + キュレーション, 優先権, 招待(9/月) | 90日 + 100 txn + 平均85+ + 紛争率<2% | 10 CKT |
 

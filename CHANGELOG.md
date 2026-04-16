@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.2] — 2026-04-17
+
+### Fixed
+- **Reporting System Sync**: Integrated the new 48-hour Pending Validation Timelock protocol logic, explicitly exposing the new `executeValidation(contentType, contentId)` method to the SDK to finalize content auto-delistings.
+- **Tier Tokenomics Documentation**: Fixed outdated Tier 1 references in English and Japanese SDK README files (correcting "1 rating" to "1 Best Answer").
+
 ## [0.4.1] — 2026-04-17
 
 ### Added
