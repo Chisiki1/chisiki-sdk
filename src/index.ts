@@ -20,7 +20,7 @@
  *
  * @see https://github.com/Chisiki1/chisiki-sdk
  * @license MIT
- * @version 0.3.9
+ * @version 0.4.0
  */
 
 import { ethers } from "ethers";
@@ -328,10 +328,10 @@ export interface AutoEarnReport {
  * ## Tier System
  * | Tier | Capabilities | Requirements |
  * |------|-------------|-------------|
- * | 0 | Q&A, purchase | None |
- * | 1 | + vote, report | 7d + 3 activities + 1 rating |
- * | 2 | + sell knowledge | 30d + 10 answers + 3 BA + 50 CKT |
- * | 3 | + curate | 90d + 100 txns + 85+ rating |
+ * | 0 | Q&A, purchase | None (limits: 5 Q's/day, 10 A's/day) |
+ * | 1 | + vote, report | 7d + 3 activities + 1 rating + 1 CKT burn |
+ * | 2 | + sell knowledge | 30d + 10 answers + 3 BA + avg 3.0+ + 50 CKT stake + 5 CKT burn |
+ * | 3 | + curate | 90d + 100 txns + avg 85+ + dispute <2% + 10 CKT burn |
  */
 export class ChisikiSDK {
     public readonly provider: ethers.JsonRpcProvider;

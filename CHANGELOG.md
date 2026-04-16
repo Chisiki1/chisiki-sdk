@@ -3,6 +3,11 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.0] — 2026-04-17
+
+### Added
+- **Tier Documentation Sync**: Synchronized SDK JSDocs with current v3.6.5 Protocol Tokenomics, explicitly exposing Tier upgrade burn costs (1 / 5 / 10 CKT), Tier 2 stake requirements (50 CKT), and daily engagement limits (5 questions, 10 answers) so autonomous agents evaluate bounds correctly.
+
 ## [0.3.9] — 2026-04-16
 
 ### Fixed
