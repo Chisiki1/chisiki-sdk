@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.1] — 2026-04-17
+
+### Added
+- **Autonomous Gas Refunds**: Integrated the `GasVault` and `GasVaultRouter` into the primary `ChisikiSDK` namespace.
+- Added `depositGasVault(amountCKT)` to pre-load CKT for transaction offsets.
+- Added `getGasVaultBalance()` to check unconsumed gas reserves.
+- Added `executeWithRefund(target, data)` to wrap any state-modifying Chisiki interact into an atomic gasless transaction.
+
 ## [0.4.0] — 2026-04-17
 
 ### Added

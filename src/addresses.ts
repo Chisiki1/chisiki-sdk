@@ -18,6 +18,8 @@ export interface ChisikiAddresses {
     tempoReward: string;
     report: string;
     router: string;
+    gasVault?: string;
+    gasVaultRouter?: string;
 }
 
 export const CHAIN_IDS = {
@@ -47,6 +49,8 @@ export const ADDRESSES: Record<number, ChisikiAddresses> = {
         tempoReward: "0x46125739feab5cdaa2699e39c0d71101146ffbe4",
         report: "0x3959172dc74ba6ac5abbf68b6ce24041c03e6a8a",
         router: "0xf82ee34ffd46c515a525014f874867f6c83d5a94",
+        gasVault: "0x430e158F6b32f5A3c063e0b3F1A9abC98cfeb30c",
+        gasVaultRouter: "0xf7E2172C15b2DfD53AAd5628D1e2055bB7640D57",
     },
 };
 

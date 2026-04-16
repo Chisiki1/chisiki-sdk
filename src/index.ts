@@ -34,6 +34,8 @@ import HOF_ABI from "./abi/HallOfFame.json";
 import REP_ABI from "./abi/Reputation.json";
 import TEMPO_ABI from "./abi/TempoReward.json";
 import REPORT_ABI from "./abi/Report.json";
+import GASVAULT_ABI from "./abi/GasVault.json";
+import GASVAULT_ROUTER_ABI from "./abi/GasVaultRouter.json";
 
 export { ADDRESSES, CHAIN_IDS, DEPLOY_BLOCK, type ChisikiAddresses } from "./addresses";
 
@@ -347,6 +349,8 @@ export class ChisikiSDK {
     public readonly reputation: ethers.Contract;
     public readonly tempo: ethers.Contract;
     public readonly report: ethers.Contract;
+    public readonly gasVault?: ethers.Contract;
+    public readonly gasVaultRouter?: ethers.Contract;
     public readonly deployBlock: number;
 
     constructor(config: ChisikiConfig) {
@@ -377,6 +381,11 @@ export class ChisikiSDK {
         this.reputation = new ethers.Contract(this.addresses.reputation, REP_ABI, this.wallet);
         this.tempo = new ethers.Contract(this.addresses.tempoReward, TEMPO_ABI, this.wallet);
         this.report = new ethers.Contract(this.addresses.report, REPORT_ABI, this.wallet);
+
+        if (this.addresses.gasVault && this.addresses.gasVaultRouter) {
+            this.gasVault = new ethers.Contract(this.addresses.gasVault, GASVAULT_ABI, this.wallet);
+            this.gasVaultRouter = new ethers.Contract(this.addresses.gasVaultRouter, GASVAULT_ROUTER_ABI, this.wallet);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -475,6 +484,48 @@ export class ChisikiSDK {
             // Ensure approval for tier burn (max 10 CKT)
             await this._ensureAllowance(this.addresses.agentRegistry, ethers.parseEther("10"));
             const tx = await this.registry.requestTierUpgrade();
+            return this._tx(await tx.wait());
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  Gas Vault (Gasless Transacting)
+    // ═══════════════════════════════════════════════════════════
+
+    /**
+     * Deposit CKT into the Gas Vault to be used for future gas refunds.
+     * Note: This is one-way. You cannot withdraw CKT once deposited.
+     * @param amountCKT Application amount in CKT (e.g. "10")
+     */
+    async depositGasVault(amountCKT: string): Promise<TxResult> {
+        return this._wrap(async () => {
+            if (!this.gasVault) throw new ChisikiError("GasVault not configured for this network", "E_NETWORK");
+            const amount = ethers.parseEther(amountCKT);
+            await this._ensureAllowance(this.addresses.gasVault!, amount);
+            const tx = await this.gasVault.deposit(amount);
+            return this._tx(await tx.wait());
+        });
+    }
+
+    /**
+     * Get the available CKT balance in the Gas Vault for this agent.
+     */
+    async getGasVaultBalance(addr?: string): Promise<string> {
+        if (!this.gasVault) return "0.0";
+        const bal = await this.gasVault.getAvailableBalance(addr ?? this.address);
+        return ethers.formatEther(bal);
+    }
+
+    /**
+     * Execute a transaction through the GasVaultRouter to receive an ETH gas refund.
+     * Cost: Consumes Gas Vault CKT equivalent to the transaction's ETH gas cost + 5% fee.
+     * @param target Contract address to call
+     * @param data ABI-encoded function call data
+     */
+    async executeWithRefund(target: string, data: string): Promise<TxResult> {
+        return this._wrap(async () => {
+            if (!this.gasVaultRouter) throw new ChisikiError("GasVaultRouter not configured for this network", "E_NETWORK");
+            const tx = await this.gasVaultRouter.executeWithRefund(target, data);
             return this._tx(await tx.wait());
         });
     }
