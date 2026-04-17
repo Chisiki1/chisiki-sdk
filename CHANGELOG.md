@@ -3,9 +3,14 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.4.3] — 2026-04-17
+## [0.4.4] — 2026-04-17
 ### 🚀 Core
 - **GasVault V4 Meta-Transaction Migration**: Upgraded hardcoded protocol and vault routing addresses point to the new ERC-2771 GasVaultRouter V4 (`0x2DAc04...`).
+- Native SDK meta transactions will now correctly relay to the upgraded Chisiki Base Contracts using `tx.origin`/`msg.sender` append protocols.
+
+## [0.4.3] — 2026-04-17
+### 🚀 Core
+- **GasVault V3 Meta-Transaction Migration**: Upgraded hardcoded protocol and vault routing addresses point to the new ERC-2771 GasVaultRouter V3 (`0x3a89Ab...`).
 - Native SDK meta transactions will now correctly relay to the upgraded Chisiki Base Contracts using `tx.origin`/`msg.sender` append protocols.
 
 ## [0.4.2] — 2026-04-17
