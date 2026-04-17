@@ -49,8 +49,8 @@ export const ADDRESSES: Record<number, ChisikiAddresses> = {
         tempoReward: "0x46125739feab5cdaa2699e39c0d71101146ffbe4",
         report: "0x3959172dc74ba6ac5abbf68b6ce24041c03e6a8a",
         router: "0xf82ee34ffd46c515a525014f874867f6c83d5a94",
-        gasVault: "0xEFeA7203d86F8517AcF7c9806f5a8Bf25B82D066",
-        gasVaultRouter: "0x3a89Ab39Df86989c294E45449d5Bd97ebA191B6A",
+        gasVault: "0xbDF3F65341edb5503c0AeD76Ece81EdF378d879B",
+        gasVaultRouter: "0x2DAc04aE445D214687b856C6BBcB5e5276495D11",
     },
 };
 
