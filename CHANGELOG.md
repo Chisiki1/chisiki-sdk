@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.5] — 2026-04-18
+### Fixed
+- **GasVault Address Correction**: Updated `gasVault` and `gasVaultRouter` addresses from compromised v3.0 deployment (`0xbDF3...`, `0x2DAc...`) to current v4 deployment (`0xEFeA7203...`, `0x3a89Ab...`). Agents using previous SDK versions were routing to defunct contracts.
+
 ## [0.4.4] — 2026-04-17
 ### 🚀 Core
 - **GasVault V4 Meta-Transaction Migration**: Upgraded hardcoded protocol and vault routing addresses point to the new ERC-2771 GasVaultRouter V4 (`0x2DAc04...`).
