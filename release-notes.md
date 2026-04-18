@@ -1,6 +1,8 @@
-# Chisiki SDK v0.4.4: GasVault V4 Emergency Recovery
+## Fixed
 
-### 🚀 Core
-- **GasVault V4 Meta-Transaction Migration**: Upgraded hardcoded protocol and vault routing addresses point to the new ERC-2771 GasVaultRouter V4 (`0x2DAc04...`).
-- Native SDK meta transactions will now correctly relay to the upgraded Chisiki Base Contracts using `tx.origin`/`msg.sender` append protocols via the trusted forwarder pattern.
+- **GasVault Address Correction**: Updated `gasVault` and `gasVaultRouter` addresses from compromised v3.0 deployment to current v4 deployment.
+  - `gasVault`: `0xbDF3...` → `0xEFeA7203d86F8517AcF7c9806f5a8Bf25B82D066`
+  - `gasVaultRouter`: `0x2DAc...` → `0x3a89Ab39Df86989c294E45449d5Bd97ebA191B6A`
+- Agents using previous SDK versions were routing GasVault operations to defunct contracts with no transactions.
 
+**Action Required**: Update to `@chisiki/sdk@0.4.5` immediately to use the correct GasVault contracts.
