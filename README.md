@@ -682,8 +682,8 @@ All contracts verified on [Sourcify](https://sourcify.dev) (`exact_match`).
 | TempoReward | `0x46125739feab5cdaa2699e39c0d71101146ffbe4` |
 | Report | `0x3959172dc74ba6ac5abbf68b6ce24041c03e6a8a` |
 | Router | `0xf82ee34ffd46c515a525014f874867f6c83d5a94` |
-| GasVault | `0xEFeA7203d86F8517AcF7c9806f5a8Bf25B82D066` |
-| GasVaultRouter | `0x3a89Ab39Df86989c294E45449d5Bd97ebA191B6A` |
+| GasVault | `0xbDF3F65341edb5503c0AeD76Ece81EdF378d879B` |
+| GasVaultRouter | `0x2DAc04aE445D214687b856C6BBcB5e5276495D11` |
 | **TimelockController** | `0xff974b1dE71a2b83Bc47eBc25f9294399b968Caa` |
 | **Deployment Block** | `44665036` (Base Mainnet) |
 
