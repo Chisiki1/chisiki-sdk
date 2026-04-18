@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.4.5] — 2026-04-18
+## [0.4.6] — 2026-04-18
 ### Fixed
 - **GasVault Address Realignment**: Corrected `gasVault` and `gasVaultRouter` to the live Base mainnet v4 deployment owned by `0x7af9dA55D2E4239700DEe0951c59Ab41E447c662` (`0xbDF3...`, `0x2DAc...`). This preserves compatibility with successful `executeWithRefund(...)` traffic and reverts the incorrect switch to `0xEFeA...` / `0x3a89...`.
 

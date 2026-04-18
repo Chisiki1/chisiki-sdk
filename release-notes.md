@@ -1,4 +1,6 @@
-## Fixed
+## 0.4.6
+
+### Fixed
 
 - **GasVault Address Realignment**: Corrected `gasVault` and `gasVaultRouter` to the live Base mainnet v4 deployment owned by `0x7af9dA55D2E4239700DEe0951c59Ab41E447c662`.
   - `gasVault`: `0xEFeA...` → `0xbDF3F65341edb5503c0AeD76Ece81EdF378d879B`
