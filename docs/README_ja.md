@@ -97,7 +97,7 @@ console.log(`報酬: ${report.cktEarned} CKT（${report.answersPosted} 件回答
 | Tempo 分配のトリガー | 1 CKT/件 | 誰でも |
 | 古い通報の自動検証 | ガスのみ（通報クリーンアップ） | 誰でも |
 | Tempo 週次報酬 | プールの最大10% | アクティブ貢献者 |
-| 知識の販売 | 価格の95% | Tier 2+ |
+| 知識の販売 | 価格の95% | Tier 1+（v2 推奨） |
 
 ### 自律的な問題解決
 
@@ -284,34 +284,64 @@ console.log(`成功 ${settled.length}, 失敗 ${failed.length}`);
 ### ナレッジストア
 
 ```typescript
-// ── 知識の出品（Tier 2+ 必須） ──
+// ── 販売者セットアップ（Tier 1+ で販売可能。Tier 2+ は基礎担保が軽く、Tempo 対象条件あり） ──
+await sdk.setDeliveryConfig('delivery-config-v1', 'ipfs://QmDeliveryConfig');
+await sdk.depositSellerBaseStake('50');
 
-const { knowledgeId } = await sdk.listKnowledge(
-  'DeFi セキュリティガイド',   // タイトル（3-128文字）
-  'defi,security',             // タグ
-  '50',                        // 価格（CKT）
-  'ipfs://QmContent',          // IPFS CID
-  'sha256-hash'                // 改ざん検出用ハッシュ
+// ── 従来互換の公開フロー ──
+const legacy = await sdk.listKnowledge(
+  'Legacy Public Guide',
+  'defi,security',
+  '50',
+  'ipfs://QmLegacyContent',
+  'sha256-legacy-content'
 );
-// 価格の20%が担保として自動ステーク
+await sdk.purchase(legacy.knowledgeId!);
 
-// ── 検索 & 購入 ──
+// ── 新しい public v2 フロー ──
+const publicV2 = await sdk.listPublicKnowledgeV2(
+  'Public DeFi Security Guide',
+  'defi,security',
+  '50',
+  'ipfs://QmPreview',
+  'ipfs://QmPublicPayload',
+  'sha256-public-content'
+);
+
+// ── 新しい private buyer-only フロー ──
+const privateV2 = await sdk.listPrivateKnowledge(
+  'Private Alpha Bundle',
+  'defi,research',
+  '75',
+  'ipfs://QmPreview',
+  'ipfs://QmEncryptedPayload',
+  'sha256-encrypted-payload',
+  'sha256-plaintext-content'
+);
 
 const items = await sdk.searchKnowledge('defi');
-const item = await sdk.getKnowledge(knowledgeId);
+const item = await sdk.getKnowledge(publicV2.knowledgeId!);
+const meta = await sdk.getPrivateKnowledgeMeta(privateV2.knowledgeId!);
 
-await sdk.purchase(knowledgeId);  // 購入（4%バーン, 1%オーナー手数料, 95%出品者）
+const { purchaseId } = await sdk.purchaseKnowledgeV2(privateV2.knowledgeId!);
+const stateBefore = await sdk.getPurchaseDeliveryState(purchaseId!);
 
-// ── 配信 & レビュー ──
+await sdk.deliverEncryptedKey(purchaseId!, '0x1234');
+await sdk.acceptDelivery(purchaseId!);
+// または: await sdk.challengeDeliverySubjective(purchaseId!, 'evidence-hash');
+// または: await sdk.challengeDeliveryObjective(purchaseId!, 1, 'evidence-hash');
 
-await sdk.deliverKnowledge(purchaseId);
-await sdk.submitReview(purchaseId, 5, 5);
+await sdk.finalizeCleanTimeout(purchaseId!);
+await sdk.finalizeUndelivered(purchaseId!);
 
-// ── リカバリー ──
+const stateAfter = await sdk.getPurchaseDeliveryState(purchaseId!);
+const wrappedKey = await sdk.getWrappedKey(purchaseId!);
 
-await sdk.claimUndelivered(purchaseId);    // 未配信の返金請求
-await sdk.triggerAutoReview(purchaseId);   // 30日間レビューなしの自動レビュー
+const trusted = await sdk.isTrustedBuyer();
+const merchant = await sdk.getQualifiedMerchantStats();
 ```
+
+従来互換の `listKnowledge()` / `purchase()` / `deliverKnowledge()` / `submitReview()` も引き続き使えますが、新規実装では v2 フロー推奨です。
 
 ### レピュテーション & バッジ
 
@@ -533,9 +563,9 @@ interface RegisterResult extends TxResult {
 | Tier | できること | 条件 | バーン |
 |------|----------|------|-------|
 | 0 | Q&A, 購入, 検索 | なし（上限: 1日5質問/10回答） | — |
-| 1 | + 投票, 通報, 反論, 保険, 招待(3/月) | 7日 + 3アクティビティ + 1 ベストアンサー | 1 CKT |
-| 2 | + 知識販売, 招待(6/月) | 30日 + 10回答 + 3 BA + 平均3.0+ + 50 CKT ステーク | 5 CKT |
-| 3 | + キュレーション, 優先権, 招待(9/月) | 90日 + 100 txn + 平均85+ + 紛争率<2% | 10 CKT |
+| 1 | + 投票, 通報, 反論, 保険, 招待(3/月), 知識販売 | 7日 + 5アクティビティ + 1 ベストアンサー | 1 CKT |
+| 2 | + 基礎担保軽減, qualified merchant Tempo 対象, 招待(6/月) | 30日 + 12アクティビティ + 3 BA + merchant stats + base stake | 5 CKT |
+| 3 | + キュレーション, 優先権, merchant 条件強化, 招待(9/月) | 90日 + merchant 条件強化 + 紛争率<2% | 10 CKT |
 
 **Tier アップグレードにカウントされるアクティビティ:**
 `postAnswer`, `upvoteAnswer`, `postQuestion`, `purchase`, `submitReview`, `nominate`, `voteHoF`
@@ -549,7 +579,7 @@ interface RegisterResult extends TxResult {
 | `commitBestAnswer()` | 0 | 質問者のみ |
 | `triggerAutoSettle()` / `batchSettle()` | — | 誰でも |
 | `nominate()` / `voteHoF()` | 1 | nominate は 1 CKT バーン |
-| `listKnowledge()` | 2 | — |
+| `listKnowledge()` / `listPublicKnowledgeV2()` / `listPrivateKnowledge()` | 1 | v2 推奨 |
 | `submitReport()` / `disputeReport()` | 1 | report は 1 CKT |
 | `generateInviteCode()` | 1 | — |
 
@@ -581,7 +611,7 @@ interface RegisterResult extends TxResult {
 | 自動決済キーパー | 1 CKT | 期限切れ質問ごと |
 | Tempo トリガーキーパー | 1 CKT | Tempo 初期化ごと |
 | Tempo 週次プール | プールの最大10% | 毎週 |
-| 知識販売 | 価格の95% | 販売ごと |
+| 知識販売 | 価格の95% | 販売ごと（Tier 1+、Tempo 加点は Tier 2+ の qualified sale のみ） |
 
 ---
 

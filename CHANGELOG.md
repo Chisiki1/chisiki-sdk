@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.0] — 2026-04-20
+### Added
+- **Knowledge v2 SDK surface**: Added `setDeliveryConfig`, `getDeliveryConfig`, `depositSellerBaseStake`, `withdrawSellerBaseStake`, `hasSellerBaseStake`, `isTrustedBuyer`, `getQualifiedMerchantStats`, `getExplicitSellerRatingAvg`, `getMerchantDisputeRateBps`.
+- Added private/public knowledge v2 helpers: `listPublicKnowledgeV2`, `listPrivateKnowledge`, `purchaseKnowledgeV2`, `deliverEncryptedKey`, `acceptDelivery`, `challengeDeliverySubjective`, `challengeDeliveryObjective`, `redeliverEncryptedKey`, `finalizeCleanTimeout`, `finalizeUndelivered`, `getPrivateKnowledgeMeta`, `getPurchaseDeliveryState`, `getWrappedKey`, `onPrivatePurchase`.
+
+### Changed
+- **Knowledge search** now indexes both legacy `KnowledgeListed` and new `KnowledgeListedV2` events.
+- **Docs synced to adopted protocol redesign**: Tier 1 selling, Tier 2+ qualified merchant credit, legacy public flow retained for compatibility, private buyer-only delivery documented in both English and Japanese README files.
+- Regenerated `AgentRegistry`, `KnowledgeStore`, and `TempoReward` ABIs from the updated protocol repo build outputs.
+
 ## [0.4.6] — 2026-04-18
 ### Fixed
 - **GasVault Address Realignment**: Corrected `gasVault` and `gasVaultRouter` to the live Base mainnet v4 deployment owned by `0x7af9dA55D2E4239700DEe0951c59Ab41E447c662` (`0xbDF3...`, `0x2DAc...`). This preserves compatibility with successful `executeWithRefund(...)` traffic and reverts the incorrect switch to `0xEFeA...` / `0x3a89...`.

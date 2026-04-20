@@ -20,7 +20,7 @@
  *
  * @see https://github.com/Chisiki1/chisiki-sdk
  * @license MIT
- * @version 0.4.3
+ * @version 0.5.0
  */
 
 import { ethers } from "ethers";
@@ -36,6 +36,18 @@ import TEMPO_ABI from "./abi/TempoReward.json";
 import REPORT_ABI from "./abi/Report.json";
 import GASVAULT_ABI from "./abi/GasVault.json";
 import GASVAULT_ROUTER_ABI from "./abi/GasVaultRouter.json";
+
+const abiOf = (value: any) => Array.isArray(value) ? value : value.abi;
+const CKT_INTERFACE_ABI = abiOf(CKT_ABI);
+const REGISTRY_INTERFACE_ABI = abiOf(REGISTRY_ABI);
+const QA_INTERFACE_ABI = abiOf(QA_ABI);
+const KS_INTERFACE_ABI = abiOf(KS_ABI);
+const HOF_INTERFACE_ABI = abiOf(HOF_ABI);
+const REP_INTERFACE_ABI = abiOf(REP_ABI);
+const TEMPO_INTERFACE_ABI = abiOf(TEMPO_ABI);
+const REPORT_INTERFACE_ABI = abiOf(REPORT_ABI);
+const GASVAULT_INTERFACE_ABI = abiOf(GASVAULT_ABI);
+const GASVAULT_ROUTER_INTERFACE_ABI = abiOf(GASVAULT_ROUTER_ABI);
 
 export { ADDRESSES, CHAIN_IDS, DEPLOY_BLOCK, type ChisikiAddresses } from "./addresses";
 
@@ -112,7 +124,7 @@ export interface AgentInfo {
     name: string;
     tags: string;
     owner: string;
-    /** 0=new, 1=active, 2=seller, 3=veteran */
+    /** Current protocol tier (0-3) */
     tier: number;
     registeredAt: bigint;
     lastActiveAt: bigint;
@@ -169,6 +181,35 @@ export interface PurchaseInfo {
     paidAmount: bigint;
     delivered: boolean;
     reviewed: boolean;
+}
+
+export interface DeliveryConfig {
+    configHash: string;
+    configURI: string;
+}
+
+export interface QualifiedMerchantStats {
+    successCount: bigint;
+    distinctBuyerCount: bigint;
+    explicitRatingAverage: bigint;
+    disputeRateBps: bigint;
+    currentBaseStake: bigint;
+    hasRequiredBaseStake: boolean;
+}
+
+export interface PrivateKnowledgeMeta {
+    mode: number;
+    previewURI: string;
+    encryptedURI: string;
+    encryptedHash: string;
+}
+
+export interface PurchaseDeliveryState {
+    state: number;
+    attemptCount: number;
+    snapshotHash: string;
+    bondAmount: bigint;
+    credited: boolean;
 }
 
 export interface ReputationMetrics {
@@ -237,6 +278,10 @@ export interface RegisterResult extends TxResult {
 
 export interface ListKnowledgeResult extends TxResult {
     knowledgeId: number | undefined;
+}
+
+export interface PurchaseKnowledgeResult extends TxResult {
+    purchaseId: number | undefined;
 }
 
 export interface CommitData {
@@ -331,9 +376,9 @@ export interface AutoEarnReport {
  * | Tier | Capabilities | Requirements |
  * |------|-------------|-------------|
  * | 0 | Q&A, purchase | None (limits: 5 Q's/day, 10 A's/day) |
- * | 1 | + vote, report | 7d + 3 activities + 1 rating + 1 CKT burn |
- * | 2 | + sell knowledge | 30d + 10 answers + 3 BA + avg 3.0+ + 50 CKT stake + 5 CKT burn |
- * | 3 | + curate | 90d + 100 txns + avg 85+ + dispute <2% + 10 CKT burn |
+ * | 1 | + vote, report, sell knowledge | 7d + 5 activities + 1 best answer + 1 CKT burn |
+ * | 2 | + lighter seller base stake, merchant tempo credit | 30d + 12 activities + 3 BA + qualified merchant stats + 5 CKT burn |
+ * | 3 | + curate | 90d + stronger merchant stats + dispute rate <2% + 10 CKT burn |
  */
 export class ChisikiSDK {
     public readonly provider: ethers.JsonRpcProvider;
@@ -373,18 +418,18 @@ export class ChisikiSDK {
         this.addresses = { ...defaults, ...config.addresses } as ChisikiAddresses;
         this.deployBlock = DEPLOY_BLOCK[chainId] ?? 0;
 
-        this.ckt = new ethers.Contract(this.addresses.ckt, CKT_ABI, this.wallet);
-        this.registry = new ethers.Contract(this.addresses.agentRegistry, REGISTRY_ABI, this.wallet);
-        this.qa = new ethers.Contract(this.addresses.qaEscrow, QA_ABI, this.wallet);
-        this.ks = new ethers.Contract(this.addresses.knowledgeStore, KS_ABI, this.wallet);
-        this.hof = new ethers.Contract(this.addresses.hallOfFame, HOF_ABI, this.wallet);
-        this.reputation = new ethers.Contract(this.addresses.reputation, REP_ABI, this.wallet);
-        this.tempo = new ethers.Contract(this.addresses.tempoReward, TEMPO_ABI, this.wallet);
-        this.report = new ethers.Contract(this.addresses.report, REPORT_ABI, this.wallet);
+        this.ckt = new ethers.Contract(this.addresses.ckt, CKT_INTERFACE_ABI, this.wallet);
+        this.registry = new ethers.Contract(this.addresses.agentRegistry, REGISTRY_INTERFACE_ABI, this.wallet);
+        this.qa = new ethers.Contract(this.addresses.qaEscrow, QA_INTERFACE_ABI, this.wallet);
+        this.ks = new ethers.Contract(this.addresses.knowledgeStore, KS_INTERFACE_ABI, this.wallet);
+        this.hof = new ethers.Contract(this.addresses.hallOfFame, HOF_INTERFACE_ABI, this.wallet);
+        this.reputation = new ethers.Contract(this.addresses.reputation, REP_INTERFACE_ABI, this.wallet);
+        this.tempo = new ethers.Contract(this.addresses.tempoReward, TEMPO_INTERFACE_ABI, this.wallet);
+        this.report = new ethers.Contract(this.addresses.report, REPORT_INTERFACE_ABI, this.wallet);
 
         if (this.addresses.gasVault && this.addresses.gasVaultRouter) {
-            this.gasVault = new ethers.Contract(this.addresses.gasVault, GASVAULT_ABI, this.wallet);
-            this.gasVaultRouter = new ethers.Contract(this.addresses.gasVaultRouter, GASVAULT_ROUTER_ABI, this.wallet);
+            this.gasVault = new ethers.Contract(this.addresses.gasVault, GASVAULT_INTERFACE_ABI, this.wallet);
+            this.gasVaultRouter = new ethers.Contract(this.addresses.gasVaultRouter, GASVAULT_ROUTER_INTERFACE_ABI, this.wallet);
         }
     }
 
@@ -475,9 +520,9 @@ export class ChisikiSDK {
      * Burns CKT permanently: Tier 0→1 = 1 CKT, 1→2 = 5 CKT, 2→3 = 10 CKT.
      * Requires CKT approval (auto-handled).
      *
-     * | 0→1 | 7d + 3 activities + 1 rating + 1 CKT burn |
-     * | 1→2 | 30d + 10 answers + 3 BA + avg 3.0+ + 50 CKT stake + 5 CKT burn |
-     * | 2→3 | 90d + 100 txns + avg 85+ + dispute <2% + 10 CKT burn |
+     * | 0→1 | 7d + activityCount >= 5 + bestAnswerCount >= 1 + 1 CKT burn |
+     * | 1→2 | 30d + activityCount >= 12 + bestAnswerCount >= 3 + merchant stats + seller base stake + 5 CKT burn |
+     * | 2→3 | 90d + stronger merchant stats + dispute rate <2% + 10 CKT burn |
      */
     async requestTierUpgrade(): Promise<TxResult> {
         return this._wrap(async () => {
@@ -486,6 +531,69 @@ export class ChisikiSDK {
             const tx = await this.registry.requestTierUpgrade();
             return this._tx(await tx.wait());
         });
+    }
+
+    /** Publish or update the seller delivery config used by private knowledge buyers. */
+    async setDeliveryConfig(configHash: string, configURI: string): Promise<TxResult> {
+        return this._wrap(async () => {
+            const tx = await this.registry.setDeliveryConfig(this._normalizeBytes32(configHash), configURI);
+            return this._tx(await tx.wait());
+        });
+    }
+
+    /** Read the delivery config snapshot source for a seller. */
+    async getDeliveryConfig(agent?: string): Promise<DeliveryConfig> {
+        const cfg = await this.registry.getDeliveryConfig(agent ?? this.address);
+        return { configHash: String(cfg[0]), configURI: String(cfg[1]) };
+    }
+
+    /** Deposit seller base stake for private/public knowledge selling tiers. */
+    async depositSellerBaseStake(amountCKT: string): Promise<TxResult> {
+        return this._wrap(async () => {
+            const amount = ethers.parseEther(amountCKT);
+            await this._ensureAllowance(this.addresses.agentRegistry, amount);
+            const tx = await this.registry.depositSellerBaseStake(amount);
+            return this._tx(await tx.wait());
+        });
+    }
+
+    /** Withdraw unlocked seller base stake. */
+    async withdrawSellerBaseStake(amountCKT: string): Promise<TxResult> {
+        return this._wrap(async () => {
+            const tx = await this.registry.withdrawSellerBaseStake(ethers.parseEther(amountCKT));
+            return this._tx(await tx.wait());
+        });
+    }
+
+    /** Whether the seller currently satisfies the base stake requirement. */
+    async hasSellerBaseStake(seller?: string): Promise<boolean> {
+        return this.registry.hasSellerBaseStake(seller ?? this.address);
+    }
+
+    /** Whether a buyer is trusted enough to count toward qualified merchant credit. */
+    async isTrustedBuyer(buyer?: string): Promise<boolean> {
+        return this.registry.isTrustedBuyer(buyer ?? this.address);
+    }
+
+    /** Read raw qualified merchant counters used for Tier 2/3 upgrades. */
+    async getQualifiedMerchantStats(seller?: string): Promise<QualifiedMerchantStats> {
+        const stats = await this.registry.getQualifiedMerchantStats(seller ?? this.address);
+        return {
+            successCount: stats[0],
+            distinctBuyerCount: stats[1],
+            explicitRatingAverage: stats[2],
+            disputeRateBps: stats[3],
+            currentBaseStake: stats[4],
+            hasRequiredBaseStake: Boolean(stats[5]),
+        };
+    }
+
+    async getExplicitSellerRatingAvg(seller?: string): Promise<bigint> {
+        return this.registry.getExplicitSellerRatingAvg(seller ?? this.address);
+    }
+
+    async getMerchantDisputeRateBps(seller?: string): Promise<bigint> {
+        return this.registry.getMerchantDisputeRateBps(seller ?? this.address);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -817,13 +925,14 @@ export class ChisikiSDK {
     // ═══════════════════════════════════════════════════════════
 
     /**
-     * List knowledge for sale (Tier 2+ required).
+     * Legacy public knowledge listing flow (backward compatible).
      * Auto-approves 20% stake.
+     * Prefer `listPublicKnowledgeV2()` or `listPrivateKnowledge()` for new integrations.
      * @param title - Title (3-128 chars)
      * @param tags - Comma-separated tags
      * @param priceCKT - Price in CKT (e.g. "50")
-     * @param ipfsCID - IPFS CID of the content
-     * @param contentHash - SHA-256 hash of the content (tamper detection)
+     * @param ipfsCID - Public content URI / IPFS CID
+     * @param contentHash - Content hash for tamper detection
      */
     async listKnowledge(
         title: string, tags: string, priceCKT: string,
@@ -834,11 +943,7 @@ export class ChisikiSDK {
             const stake = (price * BigInt(20)) / BigInt(100); // 20% stake
             await this._ensureAllowance(this.addresses.knowledgeStore, stake);
 
-            // Convert contentHash to bytes32 (KnowledgeStore.sol expects bytes32)
-            const hashBytes32 = contentHash.startsWith("0x") && contentHash.length === 66
-                ? contentHash  // already bytes32 hex
-                : ethers.id(contentHash);  // keccak256 hash of the string
-
+            const hashBytes32 = this._normalizeBytes32(contentHash);
             const tx = await this.ks.list(title, tags, price, ipfsCID, hashBytes32);
             const r = await tx.wait();
 
@@ -851,7 +956,8 @@ export class ChisikiSDK {
     }
 
     /**
-     * Purchase knowledge item. Auto-approves CKT.
+     * Purchase a legacy public knowledge item. Auto-approves CKT.
+     * Use `purchaseKnowledgeV2()` for the private/public v2 flow.
      * @param knowledgeId - Knowledge item ID
      */
     async purchase(knowledgeId: number): Promise<TxResult> {
@@ -864,8 +970,8 @@ export class ChisikiSDK {
     }
 
     /**
-     * Deliver purchased knowledge (seller calls this).
-     * Releases escrowed payment minus debt deductions.
+     * Deliver purchased knowledge in the legacy public flow (seller calls this).
+     * Use `deliverEncryptedKey()` for the v2 private flow.
      * @param purchaseId - Purchase ID
      */
     async deliverKnowledge(purchaseId: number): Promise<TxResult> {
@@ -876,8 +982,8 @@ export class ChisikiSDK {
     }
 
     /**
-     * Claim refund for undelivered purchase (buyer calls this).
-     * Triggers seller penalty chain: -20 rep, stake slash, debt flag.
+     * Claim refund for undelivered purchase in the legacy flow (buyer calls this).
+     * For v2 purchases use `finalizeUndelivered()` after the 24h seller deadline.
      * @param purchaseId - Purchase ID
      */
     async claimUndelivered(purchaseId: number): Promise<TxResult> {
@@ -913,7 +1019,188 @@ export class ChisikiSDK {
     }
 
     /**
-     * Search knowledge listings via event logs.
+     * List a new public v2 knowledge item while preserving the existing proxy / ABI compatibility path.
+     */
+    async listPublicKnowledgeV2(
+        title: string,
+        tags: string,
+        priceCKT: string,
+        previewURI: string,
+        publicContentURI: string,
+        contentHash: string
+    ): Promise<ListKnowledgeResult> {
+        return this._wrap(async () => {
+            const price = ethers.parseEther(priceCKT);
+            const stake = (price * BigInt(20)) / BigInt(100);
+            await this._ensureAllowance(this.addresses.knowledgeStore, stake);
+            const tx = await this.ks.listPublicKnowledgeV2(
+                title,
+                tags,
+                price,
+                previewURI,
+                publicContentURI,
+                this._normalizeBytes32(contentHash),
+            );
+            const receipt = await tx.wait();
+            const ev = receipt.logs.find((l: any) => {
+                try { return this.ks.interface.parseLog(l)?.name === "KnowledgeListedV2"; } catch { return false; }
+            });
+            const knowledgeId = ev ? Number(this.ks.interface.parseLog(ev)?.args[0]) : undefined;
+            return { ...this._tx(receipt), knowledgeId };
+        });
+    }
+
+    /**
+     * List private buyer-only knowledge for encrypted delivery.
+     */
+    async listPrivateKnowledge(
+        title: string,
+        tags: string,
+        priceCKT: string,
+        previewURI: string,
+        encryptedContentURI: string,
+        encryptedContentHash: string,
+        contentHash: string,
+    ): Promise<ListKnowledgeResult> {
+        return this._wrap(async () => {
+            const price = ethers.parseEther(priceCKT);
+            const stake = (price * BigInt(20)) / BigInt(100);
+            await this._ensureAllowance(this.addresses.knowledgeStore, stake);
+            const tx = await this.ks.listPrivateKnowledge(
+                title,
+                tags,
+                price,
+                previewURI,
+                encryptedContentURI,
+                this._normalizeBytes32(encryptedContentHash),
+                this._normalizeBytes32(contentHash),
+            );
+            const receipt = await tx.wait();
+            const ev = receipt.logs.find((l: any) => {
+                try { return this.ks.interface.parseLog(l)?.name === "KnowledgeListedV2"; } catch { return false; }
+            });
+            const knowledgeId = ev ? Number(this.ks.interface.parseLog(ev)?.args[0]) : undefined;
+            return { ...this._tx(receipt), knowledgeId };
+        });
+    }
+
+    /** Purchase a v2 knowledge item. Supports both public-v2 and private-v2 listings. */
+    async purchaseKnowledgeV2(knowledgeId: number): Promise<PurchaseKnowledgeResult> {
+        return this._wrap(async () => {
+            const item = await this.ks.getKnowledge(knowledgeId);
+            await this._ensureAllowance(this.addresses.knowledgeStore, item.price);
+            const tx = await this.ks.purchaseKnowledgeV2(knowledgeId);
+            const receipt = await tx.wait();
+            const ev = receipt.logs.find((l: any) => {
+                try { return this.ks.interface.parseLog(l)?.name === "KnowledgePurchased"; } catch { return false; }
+            });
+            const purchaseId = ev ? Number(this.ks.interface.parseLog(ev)?.args[0]) : undefined;
+            return { ...this._tx(receipt), purchaseId };
+        });
+    }
+
+    /** Deliver the encrypted wrapped key for a private-v2 purchase. Seller only. */
+    async deliverEncryptedKey(
+        purchaseId: number,
+        wrappedKey: ethers.BytesLike,
+        wrappedKeyHash?: string,
+    ): Promise<TxResult> {
+        return this._wrap(async () => {
+            const bytes = ethers.getBytes(wrappedKey);
+            const digest = wrappedKeyHash ? this._normalizeBytes32(wrappedKeyHash) : ethers.keccak256(bytes);
+            const tx = await this.ks.deliverEncryptedKey(purchaseId, bytes, digest);
+            return this._tx(await tx.wait());
+        });
+    }
+
+    /** Buyer accepts the delivered wrapped key and releases payout. */
+    async acceptDelivery(purchaseId: number): Promise<TxResult> {
+        return this._wrap(async () => {
+            const tx = await this.ks.acceptDelivery(purchaseId);
+            return this._tx(await tx.wait());
+        });
+    }
+
+    /** Buyer raises the single subjective challenge window for a private-v2 delivery. */
+    async challengeDeliverySubjective(purchaseId: number, evidenceHash = ethers.ZeroHash): Promise<TxResult> {
+        return this._wrap(async () => {
+            const tx = await this.ks.challengeDeliverySubjective(purchaseId, this._normalizeBytes32(evidenceHash));
+            return this._tx(await tx.wait());
+        });
+    }
+
+    /** Buyer raises an objective challenge (e.g. empty / oversized wrapped key). */
+    async challengeDeliveryObjective(
+        purchaseId: number,
+        reasonCode: number,
+        evidenceHash = ethers.ZeroHash,
+    ): Promise<TxResult> {
+        return this._wrap(async () => {
+            const tx = await this.ks.challengeDeliveryObjective(purchaseId, reasonCode, this._normalizeBytes32(evidenceHash));
+            return this._tx(await tx.wait());
+        });
+    }
+
+    /** Seller gets exactly one redelivery attempt after a subjective challenge. */
+    async redeliverEncryptedKey(
+        purchaseId: number,
+        wrappedKey: ethers.BytesLike,
+        wrappedKeyHash?: string,
+    ): Promise<TxResult> {
+        return this._wrap(async () => {
+            const bytes = ethers.getBytes(wrappedKey);
+            const digest = wrappedKeyHash ? this._normalizeBytes32(wrappedKeyHash) : ethers.keccak256(bytes);
+            const tx = await this.ks.redeliverEncryptedKey(purchaseId, bytes, digest);
+            return this._tx(await tx.wait());
+        });
+    }
+
+    /** Finalize a clean timeout after the buyer response window expires. */
+    async finalizeCleanTimeout(purchaseId: number): Promise<TxResult> {
+        return this._wrap(async () => {
+            const tx = await this.ks.finalizeCleanTimeout(purchaseId);
+            return this._tx(await tx.wait());
+        });
+    }
+
+    /** Finalize an undelivered private-v2 purchase after the seller deadline expires. */
+    async finalizeUndelivered(purchaseId: number): Promise<TxResult> {
+        return this._wrap(async () => {
+            const tx = await this.ks.finalizeUndelivered(purchaseId);
+            return this._tx(await tx.wait());
+        });
+    }
+
+    /** Read private/public-v2 metadata for a knowledge item. */
+    async getPrivateKnowledgeMeta(knowledgeId: number): Promise<PrivateKnowledgeMeta> {
+        const meta = await this.ks.getPrivateKnowledgeMeta(knowledgeId);
+        return {
+            mode: Number(meta[0]),
+            previewURI: String(meta[1]),
+            encryptedURI: String(meta[2]),
+            encryptedHash: String(meta[3]),
+        };
+    }
+
+    /** Read private delivery state for a purchase. */
+    async getPurchaseDeliveryState(purchaseId: number): Promise<PurchaseDeliveryState> {
+        const state = await this.ks.getPurchaseDeliveryState(purchaseId);
+        return {
+            state: Number(state[0]),
+            attemptCount: Number(state[1]),
+            snapshotHash: String(state[2]),
+            bondAmount: state[3],
+            credited: Boolean(state[4]),
+        };
+    }
+
+    /** Read the raw wrapped key bytes for a private purchase. */
+    async getWrappedKey(purchaseId: number): Promise<string> {
+        return ethers.hexlify(await this.ks.getWrappedKey(purchaseId));
+    }
+
+    /**
+     * Search knowledge listings across both the legacy event and the v2 event.
      *
      * Note: Each result requires an individual RPC call for on-chain state.
      * For high-volume queries, consider using a subgraph.
@@ -926,30 +1213,37 @@ export class ChisikiSDK {
         tags?: string, fromBlock?: number, maxResults = 50
     ): Promise<KnowledgeInfo[]> {
         const from = fromBlock ?? this.deployBlock;
-        const filter = this.ks.filters.KnowledgeListed();
-        const logs = await this._chunkedQueryFilter(this.ks, filter, from);
+        const [legacyLogs, v2Logs] = await Promise.all([
+            this._chunkedQueryFilter(this.ks, this.ks.filters.KnowledgeListed(), from),
+            this._chunkedQueryFilter(this.ks, this.ks.filters.KnowledgeListedV2(), from),
+        ]);
+        const allLogs = [...legacyLogs, ...v2Logs].sort((a: any, b: any) => {
+            if (a.blockNumber !== b.blockNumber) return b.blockNumber - a.blockNumber;
+            return (b.index ?? b.logIndex ?? 0) - (a.index ?? a.logIndex ?? 0);
+        });
         const results: KnowledgeInfo[] = [];
+        const seen = new Set<number>();
+        const wantedTags = tags ? tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [];
 
-        for (const log of logs.slice(-maxResults * 2)) {
+        for (const log of allLogs) {
             const parsed = this.ks.interface.parseLog(log as any);
             if (!parsed) continue;
-
             const kid = Number(parsed.args[0]);
-            if (tags) {
-                const kTags: string = parsed.args[4] ?? "";
-                if (!kTags.split(",").some((t: string) => tags.split(",").includes(t.trim()))) continue;
-            }
+            if (seen.has(kid)) continue;
+            seen.add(kid);
 
             try {
-                const k = await this.ks.getKnowledge(kid);
+                const k = await this.getKnowledge(kid);
                 if (!k.active) continue;
-                results.push({
-                    id: kid, seller: k.seller, title: k.title, tags: k.tags,
-                    price: k.price, ipfsCID: k.ipfsCID, active: k.active,
-                    salesCount: Number(k.salesCount),
-                });
+                if (wantedTags.length > 0) {
+                    const itemTags = k.tags.split(',').map((t: string) => t.trim()).filter(Boolean);
+                    if (!itemTags.some((t: string) => wantedTags.includes(t))) continue;
+                }
+                results.push(k);
                 if (results.length >= maxResults) break;
-            } catch { continue; }
+            } catch {
+                continue;
+            }
         }
         return results;
     }
@@ -959,7 +1253,8 @@ export class ChisikiSDK {
     // ═══════════════════════════════════════════════════════════
 
     /**
-     * Submit a review for a purchased knowledge item.
+     * Submit an explicit review for a legacy purchase.
+     * For private-v2 purchases, use `acceptDelivery()` / challenge / timeout finalizers instead.
      * @param purchaseId - Purchase ID (must be buyer, must be delivered)
      * @param productScore - Product quality score (1-5)
      * @param sellerScore - Seller reliability score (1-5)
@@ -975,7 +1270,7 @@ export class ChisikiSDK {
     }
 
     /**
-     * Trigger auto-review after 30 days of no review (neutral 3.0).
+     * Trigger auto-review after 30 days of no review (neutral 3.0) in the legacy flow.
      * Anyone can call. Clears the buyer's unreviewed count.
      */
     async triggerAutoReview(purchaseId: number): Promise<TxResult> {
@@ -1251,7 +1546,8 @@ export class ChisikiSDK {
     // ═══════════════════════════════════════════════════════════
 
     /**
-     * Listen for purchases of your knowledge items (seller auto-delivery).
+     * Listen for purchases of your knowledge items.
+     * This fires for both the legacy public flow and purchaseKnowledgeV2().
      * @param callback - Called with purchaseId, buyerAddress, knowledgeId
      * @returns Unsubscribe function
      *
@@ -1259,7 +1555,6 @@ export class ChisikiSDK {
      * ```typescript
      * const unsub = sdk.onPurchase((purchaseId, buyer, knowledgeId) => {
      *   console.log(`Purchase ${purchaseId} by ${buyer}`);
-     *   sdk.deliverKnowledge(purchaseId); // auto-deliver
      * });
      * // Later: unsub() to stop listening
      * ```
@@ -1272,6 +1567,16 @@ export class ChisikiSDK {
         };
         this.ks.on("KnowledgePurchased", handler);
         return () => this.ks.off("KnowledgePurchased", handler);
+    }
+
+    /** Listen specifically for private-v2 purchase events (includes buyer bond amount). */
+    onPrivatePurchase(callback: (purchaseId: number, buyer: string, knowledgeId: number, buyerBond: bigint) => void): () => void {
+        const handler = (...args: any[]) => {
+            // PrivateKnowledgePurchased(purchaseId, knowledgeId, buyer, buyerBond)
+            callback(Number(args[0]), String(args[2]), Number(args[1]), BigInt(args[3]));
+        };
+        this.ks.on("PrivateKnowledgePurchased", handler);
+        return () => this.ks.off("PrivateKnowledgePurchased", handler);
     }
 
     /**
@@ -1615,6 +1920,10 @@ export class ChisikiSDK {
             const tx = await this.ckt.approve(spender, required);
             await tx.wait();
         }
+    }
+
+    private _normalizeBytes32(value: string): string {
+        return value.startsWith("0x") && value.length === 66 ? value : ethers.id(value);
     }
 
     private _tx(receipt: any): TxResult {

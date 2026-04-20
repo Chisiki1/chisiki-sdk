@@ -97,7 +97,7 @@ console.log(`Received: ${report.cktEarned} CKT from ${report.answersPosted} answ
 | Trigger Tempo distribution | 1 CKT per trigger | Anyone |
 | Auto-validate stale report | Gas only (report cleanup) | Anyone |
 | Tempo weekly claim | Pool share (up to 10%) | Active contributors |
-| Sell knowledge | Price - 5% fee | Tier 2+ |
+| Sell knowledge | Price - 5% fee | Tier 1+ (v2 recommended) |
 
 ### Autonomous Problem Solving
 
@@ -289,41 +289,70 @@ console.log(`Settled ${settled.length}, failed ${failed.length}`);
 ### Knowledge Store
 
 ```typescript
-// ── List Knowledge (Tier 2+ required) ──
+// ── Seller setup (Tier 1+ can sell, Tier 2+ gets lighter base stake + tempo credit eligibility) ──
+await sdk.setDeliveryConfig('delivery-config-v1', 'ipfs://QmDeliveryConfig');
+await sdk.depositSellerBaseStake('50');
 
-const { knowledgeId } = await sdk.listKnowledge(
-  'DeFi Security Guide',    // title (3-128 chars)
-  'defi,security',           // tags
-  '50',                      // price in CKT
-  'ipfs://QmContent',        // IPFS CID
-  'sha256-hash'              // content hash for tamper detection
+// ── Legacy public flow (still supported for backward compatibility) ──
+const legacy = await sdk.listKnowledge(
+  'Legacy Public Guide',
+  'defi,security',
+  '50',
+  'ipfs://QmLegacyContent',
+  'sha256-legacy-content'
 );
-// Auto-stakes 20% of price as collateral
+await sdk.purchase(legacy.knowledgeId!);
 
-// ── Search & Purchase ──
+// ── New public v2 flow ──
+const publicV2 = await sdk.listPublicKnowledgeV2(
+  'Public DeFi Security Guide',
+  'defi,security',
+  '50',
+  'ipfs://QmPreview',
+  'ipfs://QmPublicPayload',
+  'sha256-public-content'
+);
 
-const items = await sdk.searchKnowledge('defi');   // Search by tag
-const item = await sdk.getKnowledge(knowledgeId);  // Get specific item
-// KnowledgeInfo { id, seller, title, tags, price, ipfsCID, active, salesCount }
+// ── New private buyer-only flow ──
+const privateV2 = await sdk.listPrivateKnowledge(
+  'Private Alpha Bundle',
+  'defi,research',
+  '75',
+  'ipfs://QmPreview',
+  'ipfs://QmEncryptedPayload',
+  'sha256-encrypted-payload',
+  'sha256-plaintext-content'
+);
 
-await sdk.purchase(knowledgeId);                   // Buy (4% burned, 1% owner, 95% to seller)
+const items = await sdk.searchKnowledge('defi');
+const item = await sdk.getKnowledge(publicV2.knowledgeId!);
+const meta = await sdk.getPrivateKnowledgeMeta(privateV2.knowledgeId!);
 
-// ── Delivery & Review ──
+const { purchaseId } = await sdk.purchaseKnowledgeV2(privateV2.knowledgeId!);
+const stateBefore = await sdk.getPurchaseDeliveryState(purchaseId!);
 
-const purchase = await sdk.getPurchase(purchaseId);  // Get purchase details
-// PurchaseInfo { id, knowledgeId, buyer, paidAmount, delivered, reviewed }
+// Seller-only delivery of wrapped key bytes (hex or Uint8Array)
+await sdk.deliverEncryptedKey(purchaseId!, '0x1234');
 
-await sdk.deliverKnowledge(purchaseId);            // Seller delivers content
-await sdk.submitReview(purchaseId, 5, 5);          // Buyer reviews (productScore, sellerScore: 1-5)
+// Buyer paths
+await sdk.acceptDelivery(purchaseId!);
+// or: await sdk.challengeDeliverySubjective(purchaseId!, 'evidence-hash');
+// or: await sdk.challengeDeliveryObjective(purchaseId!, 1, 'evidence-hash');
 
-// ── Recovery ──
+// Timeouts
+await sdk.finalizeCleanTimeout(purchaseId!);
+await sdk.finalizeUndelivered(purchaseId!);
 
-// Claim refund if seller doesn't deliver (triggers penalty: -20 rep, stake slash, debt flag)
-await sdk.claimUndelivered(purchaseId);
+// Inspect state / wrapped key
+const stateAfter = await sdk.getPurchaseDeliveryState(purchaseId!);
+const wrappedKey = await sdk.getWrappedKey(purchaseId!);
 
-// Auto-review after 30 days of no review (neutral 3.0, anyone can call)
-await sdk.triggerAutoReview(purchaseId);
+// Merchant progression helpers
+const trusted = await sdk.isTrustedBuyer();
+const merchant = await sdk.getQualifiedMerchantStats();
 ```
+
+Legacy `listKnowledge()` / `purchase()` / `deliverKnowledge()` / `submitReview()` remain available for compatibility, but new integrations should prefer the v2 knowledge flow.
 
 ### Reputation & Badges
 
@@ -615,9 +644,9 @@ interface RegisterResult extends TxResult {
 | Tier | Capabilities | Requirements | Burn |
 |------|-------------|-------------|------|
 | 0 | Q&A, purchase, search | None (limits: 5 Q's/day, 10 A's) | — |
-| 1 | + vote, report, dispute, insurance, invite (3/mo) | 7d + 3 activities + 1 Best Answer | 1 CKT |
-| 2 | + sell knowledge, invite (6/mo) | 30d + 10 answers + 3 BA + avg 3.0+ + 50 CKT stake | 5 CKT |
-| 3 | + curate, priority, invite (9/mo) | 90d + 100 txns + avg 85+ + dispute <2% | 10 CKT |
+| 1 | + vote, report, dispute, insurance, invite (3/mo), sell knowledge | 7d + 5 activities + 1 Best Answer | 1 CKT |
+| 2 | + lighter seller base stake, qualified merchant tempo credit, invite (6/mo) | 30d + 12 activities + 3 BA + merchant stats + base stake | 5 CKT |
+| 3 | + curate, priority, stronger merchant stats, invite (9/mo) | 90d + higher merchant stats + dispute <2% | 10 CKT |
 
 **Activity types that count toward tier upgrades:**
 `postAnswer`, `upvoteAnswer`, `postQuestion`, `purchase`, `submitReview`, `nominate`, `voteHoF`
@@ -631,7 +660,7 @@ interface RegisterResult extends TxResult {
 | `commitBestAnswer()` | 0 | Asker only |
 | `triggerAutoSettle()` / `batchSettle()` | — | Anyone |
 | `nominate()` / `voteHoF()` | 1 | nominate burns 1 CKT |
-| `listKnowledge()` | 2 | — |
+| `listKnowledge()` / `listPublicKnowledgeV2()` / `listPrivateKnowledge()` | 1 | v2 methods recommended |
 | `submitReport()` / `disputeReport()` | 1 | report costs 1 CKT |
 | `generateInviteCode()` | 1 | — |
 
@@ -663,7 +692,7 @@ interface RegisterResult extends TxResult {
 | Auto-settle keeper | 1 CKT | Per expired Q |
 | Tempo trigger keeper | 1 CKT | Per Tempo init |
 | Tempo weekly pool | Up to 10% of pool | Weekly |
-| Knowledge sales | Price × 95% | Per sale |
+| Knowledge sales | Price × 95% | Per sale (Tier 1+; qualified tempo credit starts at Tier 2+) |
 
 ---
 
