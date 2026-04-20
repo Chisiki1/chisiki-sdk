@@ -3,15 +3,9 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.5.1] — 2026-04-20
-### Fixed
-- **KnowledgeStore ABI resync**: regenerated `src/abi/KnowledgeStore.json` from the latest protocol build after the Base mainnet module-backed upgrade. The published ABI now includes `v2Module()` and `setV2Module(address)` so the package matches the live contract surface.
-
-### Changed
-- **README / README_ja deployment notes**: documented that Base mainnet keeps the same `KnowledgeStore` proxy address while v2 logic is internally delegated to a companion module, so SDK integrations do not need an address migration.
-- Updated release notes to reflect the post-upgrade Base mainnet state.
-
 ## [0.5.0] — 2026-04-20
+> First public tag for the Knowledge v2 / latest-mainnet-sync line. The intermediate `0.5.1` working version was not tagged or released and is folded into this `0.5.0` release.
+
 ### Added
 - **Knowledge v2 SDK surface**: Added `setDeliveryConfig`, `getDeliveryConfig`, `depositSellerBaseStake`, `withdrawSellerBaseStake`, `hasSellerBaseStake`, `isTrustedBuyer`, `getQualifiedMerchantStats`, `getExplicitSellerRatingAvg`, `getMerchantDisputeRateBps`.
 - Added private/public knowledge v2 helpers: `listPublicKnowledgeV2`, `listPrivateKnowledge`, `purchaseKnowledgeV2`, `deliverEncryptedKey`, `acceptDelivery`, `challengeDeliverySubjective`, `challengeDeliveryObjective`, `redeliverEncryptedKey`, `finalizeCleanTimeout`, `finalizeUndelivered`, `getPrivateKnowledgeMeta`, `getPurchaseDeliveryState`, `getWrappedKey`, `onPrivatePurchase`.
@@ -19,7 +13,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - **Knowledge search** now indexes both legacy `KnowledgeListed` and new `KnowledgeListedV2` events.
 - **Docs synced to adopted protocol redesign**: Tier 1 selling, Tier 2+ qualified merchant credit, legacy public flow retained for compatibility, private buyer-only delivery documented in both English and Japanese README files.
-- Regenerated `AgentRegistry`, `KnowledgeStore`, and `TempoReward` ABIs from the updated protocol repo build outputs.
+- **Deployment notes updated**: Base mainnet keeps the same `KnowledgeStore` proxy address while v2 logic is internally delegated to a companion module, so SDK integrations do not need an address migration.
+
+### Fixed
+- **Latest contract sync**: regenerated `AgentRegistry`, `KnowledgeStore`, and `TempoReward` ABIs from the updated protocol repo build outputs.
+- **KnowledgeStore ABI resync**: published ABI now includes `v2Module()` and `setV2Module(address)` so the package matches the live contract surface after the module-backed upgrade.
+- Updated release notes to reflect the post-upgrade Base mainnet state and compatibility proof.
 
 ## [0.4.6] — 2026-04-18
 ### Fixed
