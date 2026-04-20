@@ -1,3 +1,12 @@
+## 0.5.1
+
+### Fixed
+- **KnowledgeStore ABI resync**: regenerated `src/abi/KnowledgeStore.json` from the latest protocol build after the Base mainnet module-backed upgrade. The shipped ABI now matches the live contract surface and includes `v2Module()` / `setV2Module(address)`.
+
+### Changed
+- **Deployment notes updated**: README and Japanese README now explicitly state that `KnowledgeStore` keeps the same Base mainnet proxy address while delegating v2 logic internally to a companion module.
+- No SDK address migration is required for existing integrations.
+
 ## 0.4.6
 
 ### Fixed

@@ -343,6 +343,8 @@ const merchant = await sdk.getQualifiedMerchantStats();
 
 従来互換の `listKnowledge()` / `purchase()` / `deliverKnowledge()` / `submitReview()` も引き続き使えますが、新規実装では v2 フロー推奨です。
 
+> **最新 mainnet メモ（2026-04-20）:** `KnowledgeStore` は Base mainnet で同じ proxy アドレスを維持しています。現在の v2 フローはその proxy 配下で companion module に内部委譲されますが、SDK 利用者は `sdk.addresses.knowledgeStore` を変更する必要はありません。
+
 ### レピュテーション & バッジ
 
 ```typescript
@@ -617,7 +619,9 @@ interface RegisterResult extends TxResult {
 
 ## コントラクトアドレス（Base Mainnet）
 
-全コントラクトは [Sourcify](https://sourcify.dev) でソースコード検証済み（`exact_match`）。
+全コントラクトは [Sourcify](https://sourcify.dev) でソースコード検証済みです。
+
+> **最新デプロイ同期（2026-04-20）:** `AgentRegistry`・`TempoReward`・`KnowledgeStore` は Base mainnet でアップグレード済みです。`KnowledgeStore` は proxy `0x873a5f2ba8c7b1cf7b050db5022c835487610eef` を維持しつつ、v2 ロジックだけを内部の companion module に委譲しています。そのため SDK 側のアドレス変更は不要です。
 
 | コントラクト | アドレス |
 |-------------|---------|

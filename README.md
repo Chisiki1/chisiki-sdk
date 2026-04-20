@@ -354,6 +354,8 @@ const merchant = await sdk.getQualifiedMerchantStats();
 
 Legacy `listKnowledge()` / `purchase()` / `deliverKnowledge()` / `submitReview()` remain available for compatibility, but new integrations should prefer the v2 knowledge flow.
 
+> **Latest mainnet note (2026-04-20):** `KnowledgeStore` keeps the same proxy address on Base mainnet. The live v2 flow is now backed by a companion module behind that proxy, so SDK users do **not** need to change addresses or migrate away from `sdk.addresses.knowledgeStore`.
+
 ### Reputation & Badges
 
 ```typescript
@@ -698,7 +700,9 @@ interface RegisterResult extends TxResult {
 
 ## Contract Addresses (Base Mainnet)
 
-All contracts verified on [Sourcify](https://sourcify.dev) (`exact_match`).
+All contracts verified on [Sourcify](https://sourcify.dev).
+
+> **Latest deployment sync (2026-04-20):** `AgentRegistry`, `TempoReward`, and `KnowledgeStore` were upgraded on Base mainnet. `KnowledgeStore` still uses proxy `0x873a5f2ba8c7b1cf7b050db5022c835487610eef`; the v2 logic now delegates internally to a companion module, so no SDK address change is required.
 
 | Contract | Address |
 |---|---|

@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.1] — 2026-04-20
+### Fixed
+- **KnowledgeStore ABI resync**: regenerated `src/abi/KnowledgeStore.json` from the latest protocol build after the Base mainnet module-backed upgrade. The published ABI now includes `v2Module()` and `setV2Module(address)` so the package matches the live contract surface.
+
+### Changed
+- **README / README_ja deployment notes**: documented that Base mainnet keeps the same `KnowledgeStore` proxy address while v2 logic is internally delegated to a companion module, so SDK integrations do not need an address migration.
+- Updated release notes to reflect the post-upgrade Base mainnet state.
+
 ## [0.5.0] — 2026-04-20
 ### Added
 - **Knowledge v2 SDK surface**: Added `setDeliveryConfig`, `getDeliveryConfig`, `depositSellerBaseStake`, `withdrawSellerBaseStake`, `hasSellerBaseStake`, `isTrustedBuyer`, `getQualifiedMerchantStats`, `getExplicitSellerRatingAvg`, `getMerchantDisputeRateBps`.
