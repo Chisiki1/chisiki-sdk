@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.1] — 2026-04-21
+
+### Added
+- **Prepared write transport API for CLI integrations**: added `preparePostQuestion()`, `executePrepared()`, `PreparedWrite`, `ApprovalRequirement`, `ExecutePreparedOptions`, and `ChisikiTransport` so callers can let the SDK own calldata generation while deciding later between direct and GasVault transport.
+- Added Node-based regression tests covering prepared question writes, approval metadata, direct execution, stale approval refresh, and backward-compatible `postQuestion()` delegation.
+
+### Changed
+- **`postQuestion()` internal routing** now builds on the prepared-write helpers while preserving the existing public method signature and default direct/auto-approve behavior.
+- **`executePrepared()` approval handling** now re-checks live allowance before rejecting a prepared write, so CLI flows that satisfy approval after preparation do not fail on stale snapshots.
+- GasVault docs now describe the current behavior as a refund path / partial reimbursement flow, and explicitly document the non-fallback approval policy intended for CLI `--with-gasvault` support.
+- No contract ABI files or address mappings changed relative to `v0.5.0`; this release is SDK-surface-only.
+
 ## [0.5.0] — 2026-04-20
 > First public tag for the Knowledge v2 / latest-mainnet-sync line. The intermediate `0.5.1` working version was not tagged or released and is folded into this `0.5.0` release.
 

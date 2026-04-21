@@ -20,7 +20,7 @@
  *
  * @see https://github.com/Chisiki1/chisiki-sdk
  * @license MIT
- * @version 0.5.0
+ * @version 0.5.1
  */
 
 import { ethers } from "ethers";
@@ -261,6 +261,31 @@ export interface TxResult {
     hash: string;
     blockNumber: number;
     gasUsed: string;
+}
+
+export type ChisikiTransport = "direct" | "gasvault";
+
+export interface ApprovalRequirement {
+    token: "CKT";
+    spender: string;
+    required: bigint;
+    currentAllowance: bigint;
+    satisfied: boolean;
+}
+
+export interface PreparedWrite<TReceipt = TxResult> {
+    kind: string;
+    target: string;
+    data: string;
+    approvals: ApprovalRequirement[];
+    parseReceipt: (receipt: any) => TReceipt;
+}
+
+export interface ExecutePreparedOptions {
+    transport?: ChisikiTransport;
+    requireGasVault?: boolean;
+    autoApprove?: boolean;
+    gasLimit?: bigint;
 }
 
 export interface PostQuestionResult extends TxResult {
@@ -638,6 +663,71 @@ export class ChisikiSDK {
         });
     }
 
+    /**
+     * Execute a prepared write through either the direct wallet path or GasVaultRouter.
+     * CLI integrations can use this to keep calldata generation inside the SDK while choosing transport later.
+     */
+    async executePrepared<T>(prepared: PreparedWrite<T>, options: ExecutePreparedOptions = {}): Promise<T> {
+        return this._wrap(async () => {
+            const transport = options.transport ?? "direct";
+            const autoApprove = options.autoApprove ?? (transport === "direct");
+            const missingApprovals: ApprovalRequirement[] = [];
+
+            for (const approval of prepared.approvals) {
+                let currentAllowance = approval.currentAllowance;
+                if (approval.token === "CKT") {
+                    currentAllowance = await this.ckt.allowance(this.address, approval.spender);
+                }
+                approval.currentAllowance = currentAllowance;
+                approval.satisfied = currentAllowance >= approval.required;
+                if (!approval.satisfied) {
+                    missingApprovals.push(approval);
+                }
+            }
+
+            if (missingApprovals.length > 0) {
+                if (!autoApprove) {
+                    const details = missingApprovals
+                        .map((approval) => `${approval.token}:${approval.spender}`)
+                        .join(", ");
+                    throw new ChisikiError(
+                        `Approval required before execution: ${details}`,
+                        "E_UNKNOWN",
+                        { missingApprovals }
+                    );
+                }
+
+                for (const approval of missingApprovals) {
+                    await this._ensureAllowance(approval.spender, approval.required);
+                }
+            }
+
+            if (transport === "gasvault") {
+                if (!this.gasVaultRouter) {
+                    if (options.requireGasVault) {
+                        throw new ChisikiError("GasVaultRouter not configured for this network", "E_NETWORK");
+                    }
+                    throw new ChisikiError("GasVault transport requested but GasVaultRouter is unavailable", "E_NETWORK");
+                }
+
+                const overrides = options.gasLimit ? { gasLimit: options.gasLimit } : {};
+                const tx = await this.gasVaultRouter.executeWithRefund(prepared.target, prepared.data, overrides);
+                return prepared.parseReceipt(await tx.wait());
+            }
+
+            const request: { to: string; data: string; gasLimit?: bigint } = {
+                to: prepared.target,
+                data: prepared.data,
+            };
+            if (options.gasLimit !== undefined) {
+                request.gasLimit = options.gasLimit;
+            }
+
+            const tx = await this.wallet.sendTransaction(request);
+            return prepared.parseReceipt(await tx.wait());
+        });
+    }
+
     // ═══════════════════════════════════════════════════════════
     //  CKT Token (wallet)
     // ═══════════════════════════════════════════════════════════
@@ -698,6 +788,52 @@ export class ChisikiSDK {
     // ═══════════════════════════════════════════════════════════
 
     /**
+     * Build the calldata and approval requirements for posting a normal question.
+     * This is additive and intended for CLI / external transport orchestration.
+     */
+    async preparePostQuestion(
+        ipfsCID: string,
+        tags: string,
+        rewardCKT: string,
+        deadlineHours: number
+    ): Promise<PreparedWrite<PostQuestionResult>> {
+        return this._wrap(async () => {
+            const reward = ethers.parseEther(rewardCKT);
+            const total = reward + ethers.parseEther("1");
+            const currentAllowance = await this.ckt.allowance(this.address, this.addresses.qaEscrow);
+            const data = this.qa.interface.encodeFunctionData("postQuestion", [
+                ipfsCID,
+                tags,
+                reward,
+                deadlineHours * 3600,
+            ]);
+
+            return {
+                kind: "qa.postQuestion",
+                target: this.addresses.qaEscrow,
+                data,
+                approvals: [{
+                    token: "CKT",
+                    spender: this.addresses.qaEscrow,
+                    required: total,
+                    currentAllowance,
+                    satisfied: currentAllowance >= total,
+                }],
+                parseReceipt: (receipt: any): PostQuestionResult => {
+                    const ev = receipt.logs.find((l: any) => {
+                        try { return this.qa.interface.parseLog(l)?.name === "QuestionPosted"; } catch { return false; }
+                    });
+                    const qid = ev ? this.qa.interface.parseLog(ev)?.args[0] : null;
+                    return {
+                        ...this._tx(receipt),
+                        questionId: qid != null ? Number(qid) : undefined,
+                    };
+                },
+            };
+        });
+    }
+
+    /**
      * Post a question. Auto-approves CKT.
      * Cost: reward + 1 CKT platform fee.
      * @param ipfsCID - IPFS CID of question content
@@ -707,18 +843,11 @@ export class ChisikiSDK {
      */
     async postQuestion(ipfsCID: string, tags: string, rewardCKT: string, deadlineHours: number): Promise<PostQuestionResult> {
         return this._wrap(async () => {
-            const reward = ethers.parseEther(rewardCKT);
-            const total = reward + ethers.parseEther("1");
-            await this._ensureAllowance(this.addresses.qaEscrow, total);
-
-            const tx = await this.qa.postQuestion(ipfsCID, tags, reward, deadlineHours * 3600);
-            const r = await tx.wait();
-
-            const ev = r.logs.find((l: any) => {
-                try { return this.qa.interface.parseLog(l)?.name === "QuestionPosted"; } catch { return false; }
+            const prepared = await this.preparePostQuestion(ipfsCID, tags, rewardCKT, deadlineHours);
+            return this.executePrepared(prepared, {
+                transport: "direct",
+                autoApprove: true,
             });
-            const qid = ev ? this.qa.interface.parseLog(ev)?.args[0] : null;
-            return { ...this._tx(r), questionId: qid != null ? Number(qid) : undefined };
         });
     }
 

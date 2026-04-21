@@ -1,44 +1,39 @@
-## 0.5.0
+## 0.5.1
 
-> This is the first public tag for the Knowledge v2 + latest-mainnet-sync line. The intermediate `0.5.1` working version was not tagged or released and is folded into this `0.5.0` release.
+### Summary
+This release adds an additive prepared-write API so `chisiki-cli` can support `qa post-question --with-gasvault` without duplicating calldata/approval logic outside the SDK.
 
 ### Added
-- Knowledge v2 SDK surface for seller delivery config, seller base stake, merchant stats, and trusted buyer checks.
-- New v2 knowledge helpers for public/private listing, encrypted delivery, subjective/objective challenge, redelivery, and finalize flows.
-- Legacy compatibility preserved for `listKnowledge()`, `purchase()`, and `deliverKnowledge()`.
+- `preparePostQuestion(ipfsCID, tags, rewardCKT, deadlineHours)`
+- `executePrepared(prepared, { transport, autoApprove, requireGasVault, gasLimit })`
+- Public helper types:
+  - `PreparedWrite`
+  - `ApprovalRequirement`
+  - `ExecutePreparedOptions`
+  - `ChisikiTransport`
+- Regression tests for prepared writes, direct execution, stale approval refresh, and backward-compatible `postQuestion()` behavior
 
 ### Changed
-- README / README_ja now state that Base mainnet keeps the same `KnowledgeStore` proxy address while delegating v2 logic internally to a companion module.
-- No SDK address migration is required for existing integrations.
+- `postQuestion()` now internally delegates to the prepared-write flow while preserving its existing signature and default direct + auto-approve behavior.
+- `executePrepared()` re-checks live allowance before rejecting in `autoApprove: false` mode, preventing false failures from stale approval snapshots.
+- GasVault docs now describe routed execution as a refund / partial reimbursement path rather than guaranteed strict gaslessness.
 
-### Fixed
-- Regenerated `AgentRegistry`, `KnowledgeStore`, and `TempoReward` ABIs from the latest protocol build outputs.
-- `KnowledgeStore` ABI now includes `v2Module()` and `setV2Module(address)` so the SDK matches the live post-upgrade contract surface.
-
-### Proof of latest contract compatibility
-- Normalized ABI-array SHA-256 matched between SDK `src/abi/*.json` and protocol build outputs in `chisikiprotocol/out/*/*.json` (compare the parsed ABI arrays, not raw file bytes / metadata wrappers):
-  - `AgentRegistry`: `e3c6e1399ba349eff49284efc088e2b4649995641885bf2c2b6bb2d4ba70efac`
-  - `KnowledgeStore`: `7b663a38e1427ea7d13ecef70dd3337b502dd4b2294956a04262a3243367b1cd`
-  - `TempoReward`: `51da70dde4c17bbd18aa6a4a8e79a67bffabbdfbfa8fc2222254c694de4678f1`
-- Base mainnet live checks from SDK addresses passed:
-  - chainId `8453`
+### Compatibility proof
+- No ABI files under `src/abi/` changed relative to `v0.5.0`.
+- No address mappings changed relative to `v0.5.0`.
+- Public API removals: none.
+- Public API additions: `preparePostQuestion`, `executePrepared`, `PreparedWrite`, `ApprovalRequirement`, `ExecutePreparedOptions`, `ChisikiTransport`.
+- Live Base mainnet read checks passed on the current SDK address map:
+  - `chainId = 8453`
+  - `qaEscrow = 0x12dc6fbaa22d38ebbec425ba76db82f0c8594306`
+  - `nextQuestionId = 36`
   - `knowledgeStore = 0x873a5f2ba8c7b1cf7b050db5022c835487610eef`
   - `nextKnowledgeId = 0`
   - `nextPurchaseId = 0`
-  - `v2Module = 0xb00C09b496B886827B91385e5BF52986d4B95859`
-- Verified SDK methods exist for the latest contracts:
-  - `setDeliveryConfig`, `depositSellerBaseStake`, `withdrawSellerBaseStake`
-  - `listPublicKnowledgeV2`, `listPrivateKnowledge`, `purchaseKnowledgeV2`
-  - `deliverEncryptedKey`, `acceptDelivery`, `challengeDeliverySubjective`, `challengeDeliveryObjective`, `redeliverEncryptedKey`, `finalizeCleanTimeout`, `finalizeUndelivered`
-  - `getPrivateKnowledgeMeta`, `getPurchaseDeliveryState`, `getQualifiedMerchantStats`, `isTrustedBuyer`
-  - legacy `listKnowledge`, `purchase`, `deliverKnowledge`
+  - `gasVaultRouter = 0x2DAc04aE445D214687b856C6BBcB5e5276495D11`
 
-### Checklist evidence
-- [x] README 英語版更新
-- [x] README 日本語版更新
-- [x] ABI 再同期（AgentRegistry / KnowledgeStore / TempoReward）
-- [x] 最新 `KnowledgeStore` module-backed upgrade 対応
-- [x] legacy API 維持
-- [x] new API 追加
-- [x] package artifact に `docs/README_ja.md` / `CONTRIBUTING.md` を同梱
-- [x] build / package / leak audit / independent review を release 前に実施
+### Validation
+- `npm test` ✅
+- `npm pack --dry-run` ✅
+- secret leak audit ✅
+- independent review ✅
