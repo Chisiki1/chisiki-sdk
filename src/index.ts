@@ -20,7 +20,7 @@
  *
  * @see https://github.com/Chisiki1/chisiki-sdk
  * @license MIT
- * @version 0.5.1
+ * @version 0.5.2
  */
 
 import { ethers } from "ethers";
@@ -30,6 +30,7 @@ import CKT_ABI from "./abi/CKT.json";
 import REGISTRY_ABI from "./abi/AgentRegistry.json";
 import QA_ABI from "./abi/QAEscrow.json";
 import KS_ABI from "./abi/KnowledgeStore.json";
+import KS_V2_SALES_MODULE_ABI from "./abi/KnowledgeStoreV2SalesModule.json";
 import HOF_ABI from "./abi/HallOfFame.json";
 import REP_ABI from "./abi/Reputation.json";
 import TEMPO_ABI from "./abi/TempoReward.json";
@@ -38,10 +39,23 @@ import GASVAULT_ABI from "./abi/GasVault.json";
 import GASVAULT_ROUTER_ABI from "./abi/GasVaultRouter.json";
 
 const abiOf = (value: any) => Array.isArray(value) ? value : value.abi;
+const combineAbi = (...values: any[]) => {
+    const seen = new Set<string>();
+    const combined: any[] = [];
+    for (const value of values) {
+        for (const item of abiOf(value) ?? []) {
+            const key = `${item.type}:${item.name ?? ""}:${(item.inputs ?? []).map((i: any) => i.type).join(",")}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            combined.push(item);
+        }
+    }
+    return combined;
+};
 const CKT_INTERFACE_ABI = abiOf(CKT_ABI);
 const REGISTRY_INTERFACE_ABI = abiOf(REGISTRY_ABI);
 const QA_INTERFACE_ABI = abiOf(QA_ABI);
-const KS_INTERFACE_ABI = abiOf(KS_ABI);
+const KS_INTERFACE_ABI = combineAbi(KS_ABI, KS_V2_SALES_MODULE_ABI);
 const HOF_INTERFACE_ABI = abiOf(HOF_ABI);
 const REP_INTERFACE_ABI = abiOf(REP_ABI);
 const TEMPO_INTERFACE_ABI = abiOf(TEMPO_ABI);
@@ -198,18 +212,29 @@ export interface QualifiedMerchantStats {
 }
 
 export interface PrivateKnowledgeMeta {
-    mode: number;
     previewURI: string;
+    encryptedContentURI: string;
+    encryptedContentHash: string;
+    /** Backward-compatible alias for encryptedContentURI. */
     encryptedURI: string;
+    /** Backward-compatible alias for encryptedContentHash. */
     encryptedHash: string;
 }
 
 export interface PurchaseDeliveryState {
     state: number;
     attemptCount: number;
+    /** Delivery config hash snapshotted at purchase time. */
+    deliveryConfigSnapshot: string;
+    /** Backward-compatible alias for deliveryConfigSnapshot. */
     snapshotHash: string;
     bondAmount: bigint;
     credited: boolean;
+}
+
+export interface WrappedKeyInfo {
+    wrappedKey: string;
+    wrappedKeyHash: string;
 }
 
 export interface ReputationMetrics {
@@ -1180,7 +1205,67 @@ export class ChisikiSDK {
     }
 
     /**
+     * Build calldata and approval requirements for listing private buyer-only knowledge.
+     * If maxSales is provided, uses the live sales-limited listing entrypoint.
+     */
+    async prepareListPrivateKnowledge(
+        title: string,
+        tags: string,
+        priceCKT: string,
+        previewURI: string,
+        encryptedContentURI: string,
+        encryptedContentHash: string,
+        contentHash: string,
+        maxSales?: number | bigint,
+    ): Promise<PreparedWrite<ListKnowledgeResult>> {
+        return this._wrap(async () => {
+            const price = ethers.parseEther(priceCKT);
+            const stake = (price * BigInt(20)) / BigInt(100);
+            const currentAllowance = await this.ckt.allowance(this.address, this.addresses.knowledgeStore);
+            const baseArgs = [
+                title,
+                tags,
+                price,
+                previewURI,
+                encryptedContentURI,
+                this._normalizeBytes32(encryptedContentHash),
+                this._normalizeBytes32(contentHash),
+            ];
+            const useSaleLimit = maxSales !== undefined;
+            const functionName = useSaleLimit ? "listPrivateKnowledgeWithLimit" : "listPrivateKnowledge";
+            const data = this.ks.interface.encodeFunctionData(
+                functionName,
+                useSaleLimit ? [...baseArgs, BigInt(maxSales)] : baseArgs,
+            );
+
+            return {
+                kind: `ks.${functionName}`,
+                target: this.addresses.knowledgeStore,
+                data,
+                approvals: [{
+                    token: "CKT",
+                    spender: this.addresses.knowledgeStore,
+                    required: stake,
+                    currentAllowance,
+                    satisfied: currentAllowance >= stake,
+                }],
+                parseReceipt: (receipt: any): ListKnowledgeResult => {
+                    const ev = receipt.logs.find((l: any) => {
+                        try { return this.ks.interface.parseLog(l)?.name === "KnowledgeListedV2"; } catch { return false; }
+                    });
+                    const knowledgeId = ev ? this.ks.interface.parseLog(ev)?.args[0] : null;
+                    return {
+                        ...this._tx(receipt),
+                        knowledgeId: knowledgeId != null ? Number(knowledgeId) : undefined,
+                    };
+                },
+            };
+        });
+    }
+
+    /**
      * List private buyer-only knowledge for encrypted delivery.
+     * Without maxSales, the protocol default is one sale for PRIVATE_V2.
      */
     async listPrivateKnowledge(
         title: string,
@@ -1190,27 +1275,146 @@ export class ChisikiSDK {
         encryptedContentURI: string,
         encryptedContentHash: string,
         contentHash: string,
+        maxSales?: number | bigint,
     ): Promise<ListKnowledgeResult> {
         return this._wrap(async () => {
-            const price = ethers.parseEther(priceCKT);
-            const stake = (price * BigInt(20)) / BigInt(100);
-            await this._ensureAllowance(this.addresses.knowledgeStore, stake);
-            const tx = await this.ks.listPrivateKnowledge(
+            const prepared = await this.prepareListPrivateKnowledge(
                 title,
                 tags,
-                price,
+                priceCKT,
                 previewURI,
                 encryptedContentURI,
-                this._normalizeBytes32(encryptedContentHash),
-                this._normalizeBytes32(contentHash),
+                encryptedContentHash,
+                contentHash,
+                maxSales,
             );
-            const receipt = await tx.wait();
-            const ev = receipt.logs.find((l: any) => {
-                try { return this.ks.interface.parseLog(l)?.name === "KnowledgeListedV2"; } catch { return false; }
+            return this.executePrepared(prepared, {
+                transport: "direct",
+                autoApprove: true,
             });
-            const knowledgeId = ev ? Number(this.ks.interface.parseLog(ev)?.args[0]) : undefined;
-            return { ...this._tx(receipt), knowledgeId };
         });
+    }
+
+    /**
+     * List private buyer-only knowledge with an explicit sales cap.
+     * This is a convenience wrapper around listPrivateKnowledge(..., maxSales).
+     */
+    async listPrivateKnowledgeWithLimit(
+        title: string,
+        tags: string,
+        priceCKT: string,
+        previewURI: string,
+        encryptedContentURI: string,
+        encryptedContentHash: string,
+        contentHash: string,
+        maxSales: number | bigint,
+    ): Promise<ListKnowledgeResult> {
+        return this.listPrivateKnowledge(
+            title,
+            tags,
+            priceCKT,
+            previewURI,
+            encryptedContentURI,
+            encryptedContentHash,
+            contentHash,
+            maxSales,
+        );
+    }
+
+    /** Build calldata for updating a private knowledge sale cap. */
+    prepareSetSaleLimit(knowledgeId: number | bigint, maxSales: number | bigint): PreparedWrite<TxResult> {
+        return {
+            kind: "ks.setSaleLimit",
+            target: this.addresses.knowledgeStore,
+            data: this.ks.interface.encodeFunctionData("setSaleLimit", [BigInt(knowledgeId), BigInt(maxSales)]),
+            approvals: [],
+            parseReceipt: (receipt: any): TxResult => this._tx(receipt),
+        };
+    }
+
+    /** Update the sale cap for a private knowledge item. Seller only. */
+    async setSaleLimit(knowledgeId: number | bigint, maxSales: number | bigint): Promise<TxResult> {
+        return this.executePrepared(this.prepareSetSaleLimit(knowledgeId, maxSales), {
+            transport: "direct",
+            autoApprove: true,
+        });
+    }
+
+    /** Build calldata for stopping new sales of a private knowledge item. */
+    prepareStopSales(knowledgeId: number | bigint): PreparedWrite<TxResult> {
+        return {
+            kind: "ks.stopSales",
+            target: this.addresses.knowledgeStore,
+            data: this.ks.interface.encodeFunctionData("stopSales", [BigInt(knowledgeId)]),
+            approvals: [],
+            parseReceipt: (receipt: any): TxResult => this._tx(receipt),
+        };
+    }
+
+    /** Stop new sales of a private knowledge item while preserving existing purchases. Seller only. */
+    async stopSales(knowledgeId: number | bigint): Promise<TxResult> {
+        return this.executePrepared(this.prepareStopSales(knowledgeId), {
+            transport: "direct",
+            autoApprove: true,
+        });
+    }
+
+    /** Build calldata for reopening sales of a private knowledge item. */
+    prepareReopenSales(knowledgeId: number | bigint): PreparedWrite<TxResult> {
+        return {
+            kind: "ks.reopenSales",
+            target: this.addresses.knowledgeStore,
+            data: this.ks.interface.encodeFunctionData("reopenSales", [BigInt(knowledgeId)]),
+            approvals: [],
+            parseReceipt: (receipt: any): TxResult => this._tx(receipt),
+        };
+    }
+
+    /** Reopen sales of a private knowledge item within its sale cap. Seller only. */
+    async reopenSales(knowledgeId: number | bigint): Promise<TxResult> {
+        return this.executePrepared(this.prepareReopenSales(knowledgeId), {
+            transport: "direct",
+            autoApprove: true,
+        });
+    }
+
+    /** Build calldata for the admin rescue-refund path for a private purchase. */
+    prepareRescueRefundPrivatePurchase(purchaseId: number | bigint, reason: number): PreparedWrite<TxResult> {
+        return {
+            kind: "ks.rescueRefundPrivatePurchase",
+            target: this.addresses.knowledgeStore,
+            data: this.ks.interface.encodeFunctionData("rescueRefundPrivatePurchase", [BigInt(purchaseId), reason]),
+            approvals: [],
+            parseReceipt: (receipt: any): TxResult => this._tx(receipt),
+        };
+    }
+
+    /** Admin rescue refund for a private purchase that cannot be completed normally. */
+    async rescueRefundPrivatePurchase(purchaseId: number | bigint, reason: number): Promise<TxResult> {
+        return this.executePrepared(this.prepareRescueRefundPrivatePurchase(purchaseId, reason), {
+            transport: "direct",
+            autoApprove: true,
+        });
+    }
+
+    /** Read the configured max-sales cap for a private knowledge item. */
+    async getSaleLimit(knowledgeId: number | bigint): Promise<bigint> {
+        return this.ks.maxSalesByKnowledge(knowledgeId);
+    }
+
+    /** Read whether new sales are open for a private knowledge item. */
+    async isSalesOpen(knowledgeId: number | bigint): Promise<boolean> {
+        return this.ks.salesOpen(knowledgeId);
+    }
+
+    /** Read whether admin rescue has already been applied to a private purchase. */
+    async isRescueApplied(purchaseId: number | bigint): Promise<boolean> {
+        return this.ks.rescueApplied(purchaseId);
+    }
+
+    /** Read the delivery config URI snapshotted for a private purchase. */
+    async getPurchaseDeliveryConfigURI(purchaseId: number | bigint): Promise<string> {
+        return this.ks.purchaseDeliveryConfigURI(purchaseId);
     }
 
     /** Purchase a v2 knowledge item. Supports both public-v2 and private-v2 listings. */
@@ -1303,29 +1507,50 @@ export class ChisikiSDK {
     /** Read private/public-v2 metadata for a knowledge item. */
     async getPrivateKnowledgeMeta(knowledgeId: number): Promise<PrivateKnowledgeMeta> {
         const meta = await this.ks.getPrivateKnowledgeMeta(knowledgeId);
+        const previewURI = String(meta[0]);
+        const encryptedContentURI = String(meta[1]);
+        const encryptedContentHash = String(meta[2]);
         return {
-            mode: Number(meta[0]),
-            previewURI: String(meta[1]),
-            encryptedURI: String(meta[2]),
-            encryptedHash: String(meta[3]),
+            previewURI,
+            encryptedContentURI,
+            encryptedContentHash,
+            encryptedURI: encryptedContentURI,
+            encryptedHash: encryptedContentHash,
         };
     }
 
-    /** Read private delivery state for a purchase. */
+    /** Read private delivery state for a purchase from the live per-field getters. */
     async getPurchaseDeliveryState(purchaseId: number): Promise<PurchaseDeliveryState> {
-        const state = await this.ks.getPurchaseDeliveryState(purchaseId);
+        const [state, attemptCount, deliveryConfigSnapshot, bondAmount, credited] = await Promise.all([
+            this.ks.deliveryState(purchaseId),
+            this.ks.deliveryAttemptCount(purchaseId),
+            this.ks.purchaseDeliveryConfigSnapshot(purchaseId),
+            this.ks.buyerBondAmount(purchaseId),
+            this.ks.creditApplied(purchaseId),
+        ]);
+        const snapshotHash = String(deliveryConfigSnapshot);
         return {
-            state: Number(state[0]),
-            attemptCount: Number(state[1]),
-            snapshotHash: String(state[2]),
-            bondAmount: state[3],
-            credited: Boolean(state[4]),
+            state: Number(state),
+            attemptCount: Number(attemptCount),
+            deliveryConfigSnapshot: snapshotHash,
+            snapshotHash,
+            bondAmount,
+            credited: Boolean(credited),
         };
     }
 
     /** Read the raw wrapped key bytes for a private purchase. */
     async getWrappedKey(purchaseId: number): Promise<string> {
-        return ethers.hexlify(await this.ks.getWrappedKey(purchaseId));
+        const wrapped = await this.ks.getWrappedKey(purchaseId);
+        return ethers.hexlify(wrapped[0] ?? wrapped);
+    }
+
+    /** Read the raw wrapped key bytes and hash for a private purchase. */
+    async getWrappedKeyInfo(purchaseId: number): Promise<WrappedKeyInfo> {
+        const wrapped = await this.ks.getWrappedKey(purchaseId);
+        const wrappedKey = ethers.hexlify(wrapped[0] ?? wrapped);
+        const wrappedKeyHash = String(wrapped[1] ?? ethers.keccak256(wrappedKey));
+        return { wrappedKey, wrappedKeyHash };
     }
 
     /**

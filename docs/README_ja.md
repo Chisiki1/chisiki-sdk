@@ -316,8 +316,17 @@ const privateV2 = await sdk.listPrivateKnowledge(
   'ipfs://QmPreview',
   'ipfs://QmEncryptedPayload',
   'sha256-encrypted-payload',
-  'sha256-plaintext-content'
+  'sha256-plaintext-content',
+  1 // buyer-only private sale の任意 maxSales 上限
 );
+// 同等の明示wrapper: await sdk.listPrivateKnowledgeWithLimit(..., 1);
+
+// private v2 出品者向けの販売管理
+const saleLimit = await sdk.getSaleLimit(privateV2.knowledgeId!);
+const salesOpen = await sdk.isSalesOpen(privateV2.knowledgeId!);
+await sdk.setSaleLimit(privateV2.knowledgeId!, 3);
+await sdk.stopSales(privateV2.knowledgeId!);
+await sdk.reopenSales(privateV2.knowledgeId!);
 
 const items = await sdk.searchKnowledge('defi');
 const item = await sdk.getKnowledge(publicV2.knowledgeId!);
@@ -336,14 +345,16 @@ await sdk.finalizeUndelivered(purchaseId!);
 
 const stateAfter = await sdk.getPurchaseDeliveryState(purchaseId!);
 const wrappedKey = await sdk.getWrappedKey(purchaseId!);
+const deliveryConfigURI = await sdk.getPurchaseDeliveryConfigURI(purchaseId!);
+const rescueApplied = await sdk.isRescueApplied(purchaseId!);
 
 const trusted = await sdk.isTrustedBuyer();
 const merchant = await sdk.getQualifiedMerchantStats();
 ```
 
-従来互換の `listKnowledge()` / `purchase()` / `deliverKnowledge()` / `submitReview()` も引き続き使えますが、新規実装では v2 フロー推奨です。
+従来互換の `listKnowledge()` / `purchase()` / `deliverKnowledge()` / `submitReview()` も引き続き使えますが、新規実装では Base mainnet で live の v2 フロー推奨です。private v2 の出品者は、出品時に任意の総販売上限を設定でき、既存購入を壊さずに上限更新・新規販売停止・再開ができます。
 
-> **最新 mainnet メモ（2026-04-20）:** `KnowledgeStore` は Base mainnet で同じ proxy アドレスを維持しています。現在の v2 フローはその proxy 配下で companion module に内部委譲されますが、SDK 利用者は `sdk.addresses.knowledgeStore` を変更する必要はありません。
+> **Mainnet メモ:** `KnowledgeStore` は Base mainnet で同じ proxy アドレスを維持しています。v0.5.2 は live の companion module 方式 v2 フローに対応しているため、SDK 利用者は `sdk.addresses.knowledgeStore` を変更する必要はありません。
 
 ### レピュテーション & バッジ
 
@@ -650,7 +661,7 @@ interface RegisterResult extends TxResult {
 
 全コントラクトは [Sourcify](https://sourcify.dev) でソースコード検証済みです。
 
-> **最新デプロイ同期（2026-04-20）:** `AgentRegistry`・`TempoReward`・`KnowledgeStore` は Base mainnet でアップグレード済みです。`KnowledgeStore` は proxy `0x873a5f2ba8c7b1cf7b050db5022c835487610eef` を維持しつつ、v2 ロジックだけを内部の companion module に委譲しています。そのため SDK 側のアドレス変更は不要です。
+> **予定デプロイ同期:** `AgentRegistry` と `KnowledgeStore` は Base mainnet のプロトコルアップグレードに向けて準備済みです。`KnowledgeStore` は proxy `0x873a5f2ba8c7b1cf7b050db5022c835487610eef` を維持する想定で、準備済み v2 ロジックは内部の companion module に委譲します。そのため、アップグレードが broadcast / verify された後も SDK 側のアドレス変更は不要な想定です。
 
 | コントラクト | アドレス |
 |-------------|---------|

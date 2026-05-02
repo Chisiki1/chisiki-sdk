@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.2] — 2026-05-03
+
+### Added
+- **Private knowledge sales-management SDK surface**: added sales-limited private listings via optional `maxSales`, an explicit `listPrivateKnowledgeWithLimit(...)` convenience wrapper, prepared/direct helpers for `setSaleLimit`, `stopSales`, `reopenSales`, and admin `rescueRefundPrivatePurchase`, plus read helpers for sale caps, open/closed state, rescue status, and per-purchase delivery config URI.
+- Added `KnowledgeStoreV2SalesModule` ABI to the SDK ABI bundle and combined it into the KnowledgeStore interface for calldata generation and log parsing against the live module-backed KnowledgeStore proxy.
+- Added Node regression tests covering the live v2 sales-management ABI surface, prepared calldata, direct wrapper defaults, receipt parsing, and read-helper mappings.
+
+### Changed
+- **KnowledgeStore ABI resync**: regenerated `src/abi/KnowledgeStore.json` from the current protocol build output so SDK calldata and selectors match the live mainnet implementation surface.
+- Private knowledge docs now show sale-limited listings and seller-side stop/reopen/update helpers.
+
 ## [0.5.1] — 2026-04-21
 
 ### Added

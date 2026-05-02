@@ -168,3 +168,227 @@ test('postQuestion keeps backward-compatible direct flow via prepare/execute hel
   assert.deepEqual(executeOptions, { transport: 'direct', autoApprove: true });
   assert.equal(result.questionId, 77);
 });
+
+test('KnowledgeStore ABI matches live v2 sales-management surface', () => {
+  const sdk = makeSdk();
+  const requiredFunctions = [
+    'listPrivateKnowledgeWithLimit',
+    'setSaleLimit',
+    'stopSales',
+    'reopenSales',
+    'rescueRefundPrivatePurchase',
+    'maxSalesByKnowledge',
+    'salesOpen',
+    'rescueApplied',
+    'purchaseDeliveryConfigURI',
+  ];
+
+  for (const name of requiredFunctions) {
+    assert.ok(sdk.ks.interface.getFunction(name), `${name} missing from KnowledgeStore ABI`);
+  }
+
+  assert.equal(sdk.ks.interface.getFunction('getPrivateKnowledgeMeta').outputs.length, 3);
+  assert.equal(sdk.ks.interface.getFunction('getWrappedKey').outputs.length, 2);
+  assert.equal(sdk.ks.interface.getFunction('getPurchaseDeliveryState'), null);
+});
+
+test('prepareListPrivateKnowledge supports sale limit preflight metadata and receipt parsing', async () => {
+  const sdk = makeSdk();
+  sdk.ckt.allowance = async () => ethers.parseEther('1');
+  const encryptedHash = '0x' + '22'.repeat(32);
+  const contentHash = '0x' + '33'.repeat(32);
+
+  const prepared = await sdk.prepareListPrivateKnowledge(
+    'Entry Filter',
+    'mt5,trading',
+    '20',
+    'ipfs://preview',
+    'ipfs://encrypted',
+    encryptedHash,
+    contentHash,
+    10,
+  );
+
+  assert.equal(prepared.kind, 'ks.listPrivateKnowledgeWithLimit');
+  assert.equal(prepared.target, sdk.addresses.knowledgeStore);
+  assert.equal(prepared.approvals.length, 1);
+  assert.equal(prepared.approvals[0].spender, sdk.addresses.knowledgeStore);
+  assert.equal(prepared.approvals[0].required, ethers.parseEther('4'));
+  assert.equal(prepared.approvals[0].currentAllowance, ethers.parseEther('1'));
+  assert.equal(prepared.approvals[0].satisfied, false);
+
+  const decoded = sdk.ks.interface.decodeFunctionData('listPrivateKnowledgeWithLimit', prepared.data);
+  assert.equal(decoded.title, 'Entry Filter');
+  assert.equal(decoded.tags, 'mt5,trading');
+  assert.equal(decoded.price, ethers.parseEther('20'));
+  assert.equal(decoded.previewURI, 'ipfs://preview');
+  assert.equal(decoded.encryptedContentURI, 'ipfs://encrypted');
+  assert.equal(decoded.encryptedContentHash, encryptedHash);
+  assert.equal(decoded.contentHash, contentHash);
+  assert.equal(decoded.maxSales, 10n);
+
+  const event = sdk.ks.interface.encodeEventLog(
+    sdk.ks.interface.getEvent('KnowledgeListedV2'),
+    [42n, sdk.address, 2, ethers.parseEther('20')],
+  );
+  const parsed = prepared.parseReceipt({
+    hash: '0x' + '44'.repeat(32),
+    blockNumber: 222,
+    gasUsed: 333n,
+    logs: [{ topics: event.topics, data: event.data }],
+  });
+
+  assert.deepEqual(parsed, {
+    hash: '0x' + '44'.repeat(32),
+    blockNumber: 222,
+    gasUsed: '333',
+    knowledgeId: 42,
+  });
+});
+
+test('listPrivateKnowledge keeps backward-compatible direct flow through prepared write helper', async () => {
+  const sdk = makeSdk();
+  const prepared = { sentinel: true };
+  let executeOptions = null;
+
+  sdk.prepareListPrivateKnowledge = async (...args) => {
+    assert.deepEqual(args, [
+      'Entry Filter',
+      'mt5,trading',
+      '20',
+      'ipfs://preview',
+      'ipfs://encrypted',
+      '0x' + '22'.repeat(32),
+      '0x' + '33'.repeat(32),
+      10,
+    ]);
+    return prepared;
+  };
+
+  sdk.executePrepared = async (value, options) => {
+    assert.equal(value, prepared);
+    executeOptions = options;
+    return { hash: '0x' + '55'.repeat(32), blockNumber: 333, gasUsed: '444', knowledgeId: 9 };
+  };
+
+  const result = await sdk.listPrivateKnowledge(
+    'Entry Filter',
+    'mt5,trading',
+    '20',
+    'ipfs://preview',
+    'ipfs://encrypted',
+    '0x' + '22'.repeat(32),
+    '0x' + '33'.repeat(32),
+    10,
+  );
+
+  assert.deepEqual(executeOptions, { transport: 'direct', autoApprove: true });
+  assert.equal(result.knowledgeId, 9);
+});
+
+test('listPrivateKnowledgeWithLimit convenience wrapper delegates to listPrivateKnowledge with maxSales', async () => {
+  const sdk = makeSdk();
+  let calledArgs = null;
+  sdk.listPrivateKnowledge = async (...args) => {
+    calledArgs = args;
+    return { hash: '0x' + '77'.repeat(32), blockNumber: 555, gasUsed: '666', knowledgeId: 10 };
+  };
+
+  const result = await sdk.listPrivateKnowledgeWithLimit(
+    'Entry Filter',
+    'mt5,trading',
+    '20',
+    'ipfs://preview',
+    'ipfs://encrypted',
+    '0x' + '22'.repeat(32),
+    '0x' + '33'.repeat(32),
+    20,
+  );
+
+  assert.deepEqual(calledArgs, [
+    'Entry Filter',
+    'mt5,trading',
+    '20',
+    'ipfs://preview',
+    'ipfs://encrypted',
+    '0x' + '22'.repeat(32),
+    '0x' + '33'.repeat(32),
+    20,
+  ]);
+  assert.equal(result.knowledgeId, 10);
+});
+
+test('private sale-management prepared writes expose calldata without approvals', () => {
+  const sdk = makeSdk();
+
+  const limit = sdk.prepareSetSaleLimit(42, 1);
+  assert.equal(limit.kind, 'ks.setSaleLimit');
+  assert.equal(limit.target, sdk.addresses.knowledgeStore);
+  assert.deepEqual(limit.approvals, []);
+  assert.deepEqual(
+    Array.from(sdk.ks.interface.decodeFunctionData('setSaleLimit', limit.data)),
+    [42n, 1n],
+  );
+
+  const stop = sdk.prepareStopSales(42);
+  assert.equal(stop.kind, 'ks.stopSales');
+  assert.deepEqual(Array.from(sdk.ks.interface.decodeFunctionData('stopSales', stop.data)), [42n]);
+
+  const reopen = sdk.prepareReopenSales(42);
+  assert.equal(reopen.kind, 'ks.reopenSales');
+  assert.deepEqual(Array.from(sdk.ks.interface.decodeFunctionData('reopenSales', reopen.data)), [42n]);
+
+  const rescue = sdk.prepareRescueRefundPrivatePurchase(8, 2);
+  assert.equal(rescue.kind, 'ks.rescueRefundPrivatePurchase');
+  assert.deepEqual(
+    Array.from(sdk.ks.interface.decodeFunctionData('rescueRefundPrivatePurchase', rescue.data)),
+    [8n, 2n],
+  );
+});
+
+test('private sale-management wrappers preserve direct execution defaults', async () => {
+  const sdk = makeSdk();
+  const calls = [];
+
+  sdk.executePrepared = async (prepared, options) => {
+    calls.push({ kind: prepared.kind, options });
+    return { hash: '0x' + '66'.repeat(32), blockNumber: 444, gasUsed: '555' };
+  };
+
+  await sdk.setSaleLimit(42, 1);
+  await sdk.stopSales(42);
+  await sdk.reopenSales(42);
+  await sdk.rescueRefundPrivatePurchase(8, 2);
+
+  assert.deepEqual(calls, [
+    { kind: 'ks.setSaleLimit', options: { transport: 'direct', autoApprove: true } },
+    { kind: 'ks.stopSales', options: { transport: 'direct', autoApprove: true } },
+    { kind: 'ks.reopenSales', options: { transport: 'direct', autoApprove: true } },
+    { kind: 'ks.rescueRefundPrivatePurchase', options: { transport: 'direct', autoApprove: true } },
+  ]);
+});
+
+test('private sale-management read helpers map live getter types', async () => {
+  const sdk = makeSdk();
+  sdk.ks.maxSalesByKnowledge = async (knowledgeId) => {
+    assert.equal(knowledgeId, 42);
+    return 1n;
+  };
+  sdk.ks.salesOpen = async (knowledgeId) => {
+    assert.equal(knowledgeId, 42);
+    return true;
+  };
+  sdk.ks.rescueApplied = async (purchaseId) => {
+    assert.equal(purchaseId, 8);
+    return false;
+  };
+  sdk.ks.purchaseDeliveryConfigURI = async (purchaseId) => {
+    assert.equal(purchaseId, 8);
+    return 'ipfs://delivery-config';
+  };
+
+  assert.equal(await sdk.getSaleLimit(42), 1n);
+  assert.equal(await sdk.isSalesOpen(42), true);
+  assert.equal(await sdk.isRescueApplied(8), false);
+  assert.equal(await sdk.getPurchaseDeliveryConfigURI(8), 'ipfs://delivery-config');
+});

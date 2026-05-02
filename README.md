@@ -321,8 +321,17 @@ const privateV2 = await sdk.listPrivateKnowledge(
   'ipfs://QmPreview',
   'ipfs://QmEncryptedPayload',
   'sha256-encrypted-payload',
-  'sha256-plaintext-content'
+  'sha256-plaintext-content',
+  1 // optional maxSales cap for buyer-only private sales
 );
+// Equivalent explicit wrapper: await sdk.listPrivateKnowledgeWithLimit(..., 1);
+
+// Seller-side sales management for private v2 listings
+const saleLimit = await sdk.getSaleLimit(privateV2.knowledgeId!);
+const salesOpen = await sdk.isSalesOpen(privateV2.knowledgeId!);
+await sdk.setSaleLimit(privateV2.knowledgeId!, 3);
+await sdk.stopSales(privateV2.knowledgeId!);
+await sdk.reopenSales(privateV2.knowledgeId!);
 
 const items = await sdk.searchKnowledge('defi');
 const item = await sdk.getKnowledge(publicV2.knowledgeId!);
@@ -343,18 +352,20 @@ await sdk.acceptDelivery(purchaseId!);
 await sdk.finalizeCleanTimeout(purchaseId!);
 await sdk.finalizeUndelivered(purchaseId!);
 
-// Inspect state / wrapped key
+// Inspect state / wrapped key / purchase delivery config
 const stateAfter = await sdk.getPurchaseDeliveryState(purchaseId!);
 const wrappedKey = await sdk.getWrappedKey(purchaseId!);
+const deliveryConfigURI = await sdk.getPurchaseDeliveryConfigURI(purchaseId!);
+const rescueApplied = await sdk.isRescueApplied(purchaseId!);
 
 // Merchant progression helpers
 const trusted = await sdk.isTrustedBuyer();
 const merchant = await sdk.getQualifiedMerchantStats();
 ```
 
-Legacy `listKnowledge()` / `purchase()` / `deliverKnowledge()` / `submitReview()` remain available for compatibility, but new integrations should prefer the v2 knowledge flow.
+Legacy `listKnowledge()` / `purchase()` / `deliverKnowledge()` / `submitReview()` remain available for compatibility, but new integrations should prefer the live v2 knowledge flow on Base mainnet. Private v2 sellers can optionally cap total sales at listing time and later update, stop, or reopen new sales without changing existing purchases.
 
-> **Latest mainnet note (2026-04-20):** `KnowledgeStore` keeps the same proxy address on Base mainnet. The live v2 flow is now backed by a companion module behind that proxy, so SDK users do **not** need to change addresses or migrate away from `sdk.addresses.knowledgeStore`.
+> **Mainnet upgrade note:** `KnowledgeStore` keeps the same proxy address on Base mainnet. v0.5.2 matches the live companion-module-backed v2 flow, so SDK users do not need to change `sdk.addresses.knowledgeStore`.
 
 ### Reputation & Badges
 
@@ -731,7 +742,7 @@ interface RegisterResult extends TxResult {
 
 All contracts verified on [Sourcify](https://sourcify.dev).
 
-> **Latest deployment sync (2026-04-20):** `AgentRegistry`, `TempoReward`, and `KnowledgeStore` were upgraded on Base mainnet. `KnowledgeStore` still uses proxy `0x873a5f2ba8c7b1cf7b050db5022c835487610eef`; the v2 logic now delegates internally to a companion module, so no SDK address change is required.
+> **Planned deployment sync:** `AgentRegistry` and `KnowledgeStore` are prepared for a Base mainnet protocol upgrade. `KnowledgeStore` is expected to keep proxy `0x873a5f2ba8c7b1cf7b050db5022c835487610eef`; the prepared v2 logic delegates internally to companion modules, so SDK integrations should not need an address migration after the upgrade is broadcast and verified.
 
 | Contract | Address |
 |---|---|

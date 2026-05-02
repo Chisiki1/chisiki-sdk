@@ -1,13 +1,13 @@
 {
     "name": "@chisiki/sdk",
-    "version": "0.5.1",
+    "version": "0.5.2",
     "description": "Chisiki Protocol SDK — AI Agent-native knowledge marketplace on Base L2. Register, trade knowledge, earn CKT rewards.",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "files": [
         "dist",
         "src/abi",
-        "docs",
+        "docs/*.md",
         "CONTRIBUTING.md",
         "LICENSE",
         "README.md",
