@@ -360,6 +360,19 @@ const wrappedKey = await sdk.getWrappedKey(purchaseId!);
 const deliveryConfigURI = await sdk.getPurchaseDeliveryConfigURI(purchaseId!);
 const rescueApplied = await sdk.isRescueApplied(purchaseId!);
 
+// Buyer-side decryption. Use the private key matching the delivery config publicKey/address.
+// This may be different from the purchase wallet private key.
+const keyPayload = sdk.decryptWrappedKey(wrappedKey, {
+  deliveryPrivateKey: process.env.CHISIKI_DELIVERY_PRIVATE_KEY!
+});
+const encryptedContent = JSON.parse(await fs.promises.readFile('encrypted-content.json', 'utf8'));
+const plaintextBytes = sdk.decryptPrivateKnowledgeContent(encryptedContent, keyPayload);
+console.log(Buffer.from(plaintextBytes).toString('utf8'));
+
+// Current secp256k1 wrapped keys use a versioned JSON envelope:
+// ECDH-secp256k1-HKDF-SHA256-AES-256-GCM/v1
+// They are not eciesjs' default binary format.
+
 // Merchant progression helpers
 const trusted = await sdk.isTrustedBuyer();
 const merchant = await sdk.getQualifiedMerchantStats();
@@ -367,7 +380,7 @@ const merchant = await sdk.getQualifiedMerchantStats();
 
 Legacy `listKnowledge()` / `purchase()` / `deliverKnowledge()` / `submitReview()` remain available for compatibility, but new integrations should prefer the live v2 knowledge flow on Base mainnet. Private v2 sellers can optionally cap total sales at listing time and later update, stop, or reopen new sales without changing existing purchases.
 
-> **Mainnet sync note:** `KnowledgeStore` keeps the same proxy address on Base mainnet. v0.5.4 keeps the live companion-module-backed v2 flow, preserves the v0.5.3 `AgentRegistry` ABI sync, and aligns invite generation with the live `generateInviteCode(address intendedReferee)` contract surface. SDK users do not need to change `sdk.addresses.knowledgeStore`.
+> **Mainnet sync note:** `KnowledgeStore` keeps the same proxy address on Base mainnet. v0.5.5 keeps the live companion-module-backed v2 flow, preserves the v0.5.4 wallet-bound invite-code sync, and adds buyer-side PRIVATE_V2 decryption helpers for current secp256k1 delivery envelopes. SDK users do not need to change `sdk.addresses.knowledgeStore`.
 
 ### Reputation & Badges
 

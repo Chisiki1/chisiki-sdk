@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.5] — 2026-05-03
+
+### Added
+- **Private knowledge buyer decryption helpers**: added `decryptPrivateKnowledgeWrappedKey(...)`, `decryptPrivateKnowledgeContent(...)`, plus instance helpers `sdk.decryptWrappedKey(...)` and `sdk.decryptPrivateKnowledgeContent(...)`.
+- Added typed support for the live seller-delivered JSON wrapped-key envelope `ECDH-secp256k1-HKDF-SHA256-AES-256-GCM/v1`, including the required HKDF info/AAD value `chisiki-private-knowledge:ecies:v1`.
+- Added regression tests that prove a secp256k1 delivery private key can decrypt the wrapped seller key payload and then decrypt AES-256-GCM private content.
+
+### Changed
+- README and Japanese README now state that PRIVATE_V2 decryption uses the delivery-config key pair, not necessarily the purchase wallet key, and that the current secp256k1 envelope is not the default `eciesjs` binary format.
+
 ## [0.5.4] — 2026-05-03
 
 ### Fixed

@@ -20,10 +20,11 @@
  *
  * @see https://github.com/Chisiki1/chisiki-sdk
  * @license MIT
- * @version 0.5.4
+ * @version 0.5.5
  */
 
 import { ethers } from "ethers";
+import { createDecipheriv, createHash, createECDH, hkdfSync } from "crypto";
 import { ADDRESSES, CHAIN_IDS, DEPLOY_BLOCK, type ChisikiAddresses } from "./addresses";
 
 import CKT_ABI from "./abi/CKT.json";
@@ -248,6 +249,59 @@ export interface WrappedKeyInfo {
     wrappedKeyHash: string;
 }
 
+export interface PrivateKnowledgeKeyPayload {
+    v: number;
+    t?: string;
+    kid?: string;
+    pid: string;
+    alg: "AES-256-GCM" | string;
+    /** Base64-encoded AES key. */
+    k: string;
+    /** Base64-encoded AES-GCM nonce/IV for the encrypted content. */
+    n?: string;
+    /** Optional base64-encoded AES-GCM tag duplicated from the encrypted content envelope. */
+    tag?: string;
+    /** Expected encrypted content keccak256 hash. */
+    h?: string;
+    [key: string]: unknown;
+}
+
+export type Secp256k1WrappedKeyAlgorithm =
+    "ECDH-secp256k1-HKDF-SHA256-AES-256-GCM"
+    | "ECDH-secp256k1-HKDF-SHA256-AES-256-GCM/v1";
+
+export interface Secp256k1WrappedKeyEnvelope {
+    v: number;
+    alg: Secp256k1WrappedKeyAlgorithm | string;
+    /** Base64-encoded ephemeral secp256k1 public key bytes. */
+    epk: string;
+    /** Base64-encoded HKDF salt. */
+    salt: string;
+    /** Base64-encoded AES-GCM IV. */
+    iv: string;
+    /** Base64-encoded encrypted key payload. */
+    ct: string;
+    /** Base64-encoded AES-GCM auth tag. */
+    tag: string;
+    /** HKDF info and AES-GCM AAD. Defaults to chisiki-private-knowledge:ecies:v1. */
+    info?: string;
+}
+
+export interface EncryptedPrivateKnowledgeEnvelope {
+    scheme: "AES-256-GCM" | string;
+    nonce: string;
+    ciphertext: string;
+    authTag: string;
+    encoding?: "base64" | string;
+    plaintextSha256?: string;
+    [key: string]: unknown;
+}
+
+export interface DecryptWrappedKeyOptions {
+    /** Delivery private key matching the delivery config publicKey/address, not necessarily the purchase wallet key. */
+    deliveryPrivateKey?: string;
+}
+
 export interface ReputationMetrics {
     /** Time-weighted avg rating ×100 (e.g. 350 = 3.50) */
     weightedRating: bigint;
@@ -418,6 +472,113 @@ export interface AutoEarnReport {
     temposClaimed: number;
     cktEarned: string;
     actions: { type: string; detail: any }[];
+}
+
+const PRIVATE_KNOWLEDGE_ECIES_INFO = "chisiki-private-knowledge:ecies:v1";
+const SUPPORTED_SECP256K1_WRAPPED_KEY_ALGS = new Set<string>([
+    "ECDH-secp256k1-HKDF-SHA256-AES-256-GCM",
+    "ECDH-secp256k1-HKDF-SHA256-AES-256-GCM/v1",
+]);
+
+function normalizePrivateKeyHex(privateKey: string): string {
+    const normalized = privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`;
+    if (!/^0x[0-9a-fA-F]{64}$/.test(normalized)) {
+        throw new ChisikiError("deliveryPrivateKey must be a 32-byte hex private key", "E_UNKNOWN");
+    }
+    return normalized;
+}
+
+function parseJsonBytes<T>(bytes: string | Uint8Array, label: string): T {
+    const buf = typeof bytes === "string" ? Buffer.from(ethers.getBytes(bytes)) : Buffer.from(bytes);
+    try {
+        return JSON.parse(buf.toString("utf8")) as T;
+    } catch (e) {
+        throw new ChisikiError(`${label} is not valid JSON`, "E_UNKNOWN", e);
+    }
+}
+
+/**
+ * Decrypt a PRIVATE_V2 wrapped key JSON envelope.
+ *
+ * The delivery private key must match the delivery config publicKey/address that
+ * was snapshotted at purchase time; it is not necessarily the purchase wallet key.
+ * The current secp256k1 envelope is not eciesjs' default binary format.
+ */
+export function decryptPrivateKnowledgeWrappedKey(
+    wrappedKey: string | Uint8Array,
+    deliveryPrivateKey: string,
+): PrivateKnowledgeKeyPayload {
+    const envelope = parseJsonBytes<Secp256k1WrappedKeyEnvelope>(wrappedKey, "wrappedKey");
+    if (!SUPPORTED_SECP256K1_WRAPPED_KEY_ALGS.has(envelope.alg)) {
+        throw new ChisikiError(`Unsupported wrapped key algorithm: ${envelope.alg}`, "E_UNKNOWN");
+    }
+    const normalizedPrivateKey = normalizePrivateKeyHex(deliveryPrivateKey);
+    const ecdh = createECDH("secp256k1");
+    ecdh.setPrivateKey(Buffer.from(normalizedPrivateKey.slice(2), "hex"));
+    const info = envelope.info ?? PRIVATE_KNOWLEDGE_ECIES_INFO;
+    try {
+        const sharedSecret = ecdh.computeSecret(Buffer.from(envelope.epk, "base64"));
+        const key = Buffer.from(hkdfSync(
+            "sha256",
+            sharedSecret,
+            Buffer.from(envelope.salt, "base64"),
+            Buffer.from(info, "utf8"),
+            32,
+        ));
+        const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(envelope.iv, "base64"));
+        decipher.setAAD(Buffer.from(info, "utf8"));
+        decipher.setAuthTag(Buffer.from(envelope.tag, "base64"));
+        const payload = Buffer.concat([
+            decipher.update(Buffer.from(envelope.ct, "base64")),
+            decipher.final(),
+        ]);
+        const decoded = JSON.parse(payload.toString("utf8")) as PrivateKnowledgeKeyPayload;
+        if (decoded.alg !== "AES-256-GCM") {
+            throw new ChisikiError(`Unsupported private knowledge key algorithm: ${decoded.alg}`, "E_UNKNOWN");
+        }
+        return decoded;
+    } catch (e) {
+        if (e instanceof ChisikiError) throw e;
+        throw new ChisikiError("Failed to decrypt wrapped private knowledge key", "E_UNKNOWN", e);
+    }
+}
+
+/** Decrypt an AES-256-GCM private knowledge content envelope with a decrypted key payload. */
+export function decryptPrivateKnowledgeContent(
+    encryptedContent: EncryptedPrivateKnowledgeEnvelope | string,
+    keyPayload: PrivateKnowledgeKeyPayload,
+): Uint8Array {
+    const content = typeof encryptedContent === "string"
+        ? JSON.parse(encryptedContent) as EncryptedPrivateKnowledgeEnvelope
+        : encryptedContent;
+    if (content.scheme !== "AES-256-GCM") {
+        throw new ChisikiError(`Unsupported encrypted content scheme: ${content.scheme}`, "E_UNKNOWN");
+    }
+    if (content.encoding && content.encoding !== "base64") {
+        throw new ChisikiError(`Unsupported encrypted content encoding: ${content.encoding}`, "E_UNKNOWN");
+    }
+    try {
+        const decipher = createDecipheriv(
+            "aes-256-gcm",
+            Buffer.from(keyPayload.k, "base64"),
+            Buffer.from(content.nonce || keyPayload.n || "", "base64"),
+        );
+        decipher.setAuthTag(Buffer.from(content.authTag || keyPayload.tag || "", "base64"));
+        const plaintext = Buffer.concat([
+            decipher.update(Buffer.from(content.ciphertext, "base64")),
+            decipher.final(),
+        ]);
+        if (content.plaintextSha256) {
+            const actual = createHash("sha256").update(plaintext).digest("hex");
+            if (actual !== content.plaintextSha256) {
+                throw new ChisikiError(`Plaintext SHA-256 mismatch: ${actual}`, "E_UNKNOWN");
+            }
+        }
+        return plaintext;
+    } catch (e) {
+        if (e instanceof ChisikiError) throw e;
+        throw new ChisikiError("Failed to decrypt private knowledge content", "E_UNKNOWN", e);
+    }
 }
 
 // ────────────────────────────────────────────────────────────
@@ -1592,6 +1753,24 @@ export class ChisikiSDK {
         const wrappedKey = ethers.hexlify(wrapped[0] ?? wrapped);
         const wrappedKeyHash = String(wrapped[1] ?? ethers.keccak256(wrappedKey));
         return { wrappedKey, wrappedKeyHash };
+    }
+
+    /**
+     * Decrypt a private-v2 wrapped key.
+     *
+     * Pass the private key that corresponds to the buyer delivery config public key/address.
+     * If omitted, the SDK wallet key is used, which only works when the purchase wallet is also the delivery key.
+     */
+    decryptWrappedKey(wrappedKey: string | Uint8Array, options: DecryptWrappedKeyOptions = {}): PrivateKnowledgeKeyPayload {
+        return decryptPrivateKnowledgeWrappedKey(wrappedKey, options.deliveryPrivateKey ?? this.wallet.privateKey);
+    }
+
+    /** Decrypt an AES-256-GCM private knowledge content envelope using a decrypted wrapped-key payload. */
+    decryptPrivateKnowledgeContent(
+        encryptedContent: EncryptedPrivateKnowledgeEnvelope | string,
+        keyPayload: PrivateKnowledgeKeyPayload,
+    ): Uint8Array {
+        return decryptPrivateKnowledgeContent(encryptedContent, keyPayload);
     }
 
     /**

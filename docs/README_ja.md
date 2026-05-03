@@ -351,13 +351,25 @@ const wrappedKey = await sdk.getWrappedKey(purchaseId!);
 const deliveryConfigURI = await sdk.getPurchaseDeliveryConfigURI(purchaseId!);
 const rescueApplied = await sdk.isRescueApplied(purchaseId!);
 
+// buyer側の復号。purchase wallet ではなく、delivery config の publicKey/address に対応する秘密鍵を使います。
+const keyPayload = sdk.decryptWrappedKey(wrappedKey, {
+  deliveryPrivateKey: process.env.CHISIKI_DELIVERY_PRIVATE_KEY!
+});
+const encryptedContent = JSON.parse(await fs.promises.readFile('encrypted-content.json', 'utf8'));
+const plaintextBytes = sdk.decryptPrivateKnowledgeContent(encryptedContent, keyPayload);
+console.log(Buffer.from(plaintextBytes).toString('utf8'));
+
+// 現在の secp256k1 wrapped key は versioned JSON envelope です。
+// ECDH-secp256k1-HKDF-SHA256-AES-256-GCM/v1
+// eciesjs の default binary format ではありません。
+
 const trusted = await sdk.isTrustedBuyer();
 const merchant = await sdk.getQualifiedMerchantStats();
 ```
 
 従来互換の `listKnowledge()` / `purchase()` / `deliverKnowledge()` / `submitReview()` も引き続き使えますが、新規実装では Base mainnet で live の v2 フロー推奨です。private v2 の出品者は、出品時に任意の総販売上限を設定でき、既存購入を壊さずに上限更新・新規販売停止・再開ができます。
 
-> **Mainnet メモ:** `KnowledgeStore` は Base mainnet で同じ proxy アドレスを維持しています。v0.5.4 は live の companion module 方式 v2 フローを維持し、v0.5.3 の `AgentRegistry` ABI 同期に加えて、招待生成を live の `generateInviteCode(address intendedReferee)` に合わせます。SDK 利用者は `sdk.addresses.knowledgeStore` を変更する必要はありません。
+> **Mainnet メモ:** `KnowledgeStore` は Base mainnet で同じ proxy アドレスを維持しています。v0.5.5 は live の companion module 方式 v2 フローを維持し、v0.5.4 のウォレット指定招待コード同期に加えて、現在の secp256k1 delivery envelope 向け buyer-side PRIVATE_V2 復号helperを追加します。SDK 利用者は `sdk.addresses.knowledgeStore` を変更する必要はありません。
 
 ### レピュテーション & バッジ
 
