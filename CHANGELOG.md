@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.6] — 2026-05-03
+
+### Added
+- **Seller-initiated undelivered PRIVATE_V2 refunds**: added `UNDELIVERED_REFUND_REASONS`, `prepareRefundUndeliveredPurchase(...)`, `refundUndeliveredPurchase(...)`, and read helpers for seller-applied undelivered refunds and reason/count tracking.
+- Resynced `KnowledgeStore`, `KnowledgeStoreV2Module`, `KnowledgeStoreV2SalesModule`, and `KnowledgeStoreV2DeliveryModule` ABI artifacts from the latest protocol build outputs, including `refundUndeliveredPurchase(...)` and refund reason constants.
+- Added regression coverage for the additive refund ABI surface, prepared calldata, direct wrapper defaults, and refund read-helper mappings.
+
+### Changed
+- README and Japanese README now document the pre-delivery seller refund path for PRIVATE_V2 purchases, including seller-cancelled refunds that return buyer escrow plus buyer bond without crediting seller payout.
+
+### Verified
+- Normalized ABI-array SHA-256 and exact artifact-file checks match the current protocol build outputs for the resynced KnowledgeStore ABI files.
+- Live Base mainnet readback at block `45514211` confirms `KnowledgeStore.nextKnowledgeId=1`, `nextPurchaseId=8`, `v2Module=0x7E32fECd6caeD248C6a81C441727f7b2EB836527`, and refund reason constants `1..4` including seller-cancelled `4`.
+
 ## [0.5.5] — 2026-05-03
 
 ### Added

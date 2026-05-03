@@ -188,7 +188,17 @@ test('KnowledgeStore ABI includes live v2 sales and delivery companion-module su
     'challengeDeliveryObjective',
     'finalizeCleanTimeout',
     'finalizeUndelivered',
+    'refundUndeliveredPurchase',
     'purchaseKnowledgeV2',
+    'REFUND_REASON_INVALID_DELIVERY_CONFIG',
+    'REFUND_REASON_UNSUPPORTED_BUYER_KEY',
+    'REFUND_REASON_STALE_OR_INCONSISTENT_BUYER_TX',
+    'REFUND_REASON_SELLER_CANCELLED',
+    'undeliveredSellerRefundApplied',
+    'undeliveredRefundReason',
+    'sellerUndeliveredRefundCount',
+    'buyerUndeliveredRefundReceivedCount',
+    'knowledgeUndeliveredRefundCount',
   ];
 
   for (const name of requiredFunctions) {
@@ -352,6 +362,22 @@ test('private sale-management prepared writes expose calldata without approvals'
     Array.from(sdk.ks.interface.decodeFunctionData('rescueRefundPrivatePurchase', rescue.data)),
     [8n, 2n],
   );
+
+  const sellerRefund = sdk.prepareRefundUndeliveredPurchase(8, 4);
+  assert.equal(sellerRefund.kind, 'ks.refundUndeliveredPurchase');
+  assert.deepEqual(
+    Array.from(sdk.ks.interface.decodeFunctionData('refundUndeliveredPurchase', sellerRefund.data)),
+    [8n, 4n],
+  );
+
+  assert.throws(
+    () => sdk.prepareRefundUndeliveredPurchase(8, 0),
+    /Invalid undelivered refund reason/,
+  );
+  assert.throws(
+    () => sdk.prepareRefundUndeliveredPurchase(8, 5),
+    /Invalid undelivered refund reason/,
+  );
 });
 
 test('private sale-management wrappers preserve direct execution defaults', async () => {
@@ -367,12 +393,14 @@ test('private sale-management wrappers preserve direct execution defaults', asyn
   await sdk.stopSales(42);
   await sdk.reopenSales(42);
   await sdk.rescueRefundPrivatePurchase(8, 2);
+  await sdk.refundUndeliveredPurchase(8, 4);
 
   assert.deepEqual(calls, [
     { kind: 'ks.setSaleLimit', options: { transport: 'direct', autoApprove: true } },
     { kind: 'ks.stopSales', options: { transport: 'direct', autoApprove: true } },
     { kind: 'ks.reopenSales', options: { transport: 'direct', autoApprove: true } },
     { kind: 'ks.rescueRefundPrivatePurchase', options: { transport: 'direct', autoApprove: true } },
+    { kind: 'ks.refundUndeliveredPurchase', options: { transport: 'direct', autoApprove: true } },
   ]);
 });
 
@@ -394,9 +422,34 @@ test('private sale-management read helpers map live getter types', async () => {
     assert.equal(purchaseId, 8);
     return 'ipfs://delivery-config';
   };
+  sdk.ks.undeliveredSellerRefundApplied = async (purchaseId) => {
+    assert.equal(purchaseId, 8);
+    return true;
+  };
+  sdk.ks.undeliveredRefundReason = async (purchaseId) => {
+    assert.equal(purchaseId, 8);
+    return 4n;
+  };
+  sdk.ks.sellerUndeliveredRefundCount = async (seller) => {
+    assert.equal(seller, sdk.address);
+    return 2n;
+  };
+  sdk.ks.buyerUndeliveredRefundReceivedCount = async (buyer) => {
+    assert.equal(buyer, sdk.address);
+    return 3n;
+  };
+  sdk.ks.knowledgeUndeliveredRefundCount = async (knowledgeId) => {
+    assert.equal(knowledgeId, 42);
+    return 1n;
+  };
 
   assert.equal(await sdk.getSaleLimit(42), 1n);
   assert.equal(await sdk.isSalesOpen(42), true);
   assert.equal(await sdk.isRescueApplied(8), false);
   assert.equal(await sdk.getPurchaseDeliveryConfigURI(8), 'ipfs://delivery-config');
+  assert.equal(await sdk.isUndeliveredSellerRefundApplied(8), true);
+  assert.equal(await sdk.getUndeliveredRefundReason(8), 4);
+  assert.equal(await sdk.getSellerUndeliveredRefundCount(sdk.address), 2n);
+  assert.equal(await sdk.getBuyerUndeliveredRefundReceivedCount(sdk.address), 3n);
+  assert.equal(await sdk.getKnowledgeUndeliveredRefundCount(42), 1n);
 });

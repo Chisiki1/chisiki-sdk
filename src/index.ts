@@ -20,7 +20,7 @@
  *
  * @see https://github.com/Chisiki1/chisiki-sdk
  * @license MIT
- * @version 0.5.5
+ * @version 0.5.6
  */
 
 import { ethers } from "ethers";
@@ -248,6 +248,28 @@ export interface WrappedKeyInfo {
     wrappedKey: string;
     wrappedKeyHash: string;
 }
+
+/** Protocol refund reasons for seller-initiated pre-delivery private purchase refunds. */
+export const UNDELIVERED_REFUND_REASONS = {
+    INVALID_DELIVERY_CONFIG: 1,
+    UNSUPPORTED_BUYER_KEY: 2,
+    STALE_OR_INCONSISTENT_BUYER_TX: 3,
+    SELLER_CANCELLED: 4,
+} as const;
+
+export type UndeliveredRefundReason = typeof UNDELIVERED_REFUND_REASONS[keyof typeof UNDELIVERED_REFUND_REASONS];
+
+const normalizeUndeliveredRefundReason = (reason: UndeliveredRefundReason | number): bigint => {
+    const value = Number(reason);
+    const validReasons = Object.values(UNDELIVERED_REFUND_REASONS) as number[];
+    if (!Number.isInteger(value) || !validReasons.includes(value)) {
+        throw new ChisikiError(
+            `Invalid undelivered refund reason: ${String(reason)}. Use UNDELIVERED_REFUND_REASONS values 1-4.`,
+            "E_TX_REVERTED",
+        );
+    }
+    return BigInt(value);
+};
 
 export interface PrivateKnowledgeKeyPayload {
     v: number;
@@ -1599,6 +1621,43 @@ export class ChisikiSDK {
         });
     }
 
+    /**
+     * Build calldata for a seller-initiated pre-delivery refund of a private-v2 purchase.
+     *
+     * The seller can use this when they cannot or should not complete delivery before the first encrypted key is delivered.
+     * Use `UNDELIVERED_REFUND_REASONS` for stable reason codes; reason `4` is seller-cancelled.
+     */
+    prepareRefundUndeliveredPurchase(
+        purchaseId: number | bigint,
+        reason: UndeliveredRefundReason | number,
+    ): PreparedWrite<TxResult> {
+        return {
+            kind: "ks.refundUndeliveredPurchase",
+            target: this.addresses.knowledgeStore,
+            data: this.ks.interface.encodeFunctionData("refundUndeliveredPurchase", [
+                BigInt(purchaseId),
+                normalizeUndeliveredRefundReason(reason),
+            ]),
+            approvals: [],
+            parseReceipt: (receipt: any): TxResult => this._tx(receipt),
+        };
+    }
+
+    /**
+     * Seller-initiated pre-delivery refund for a private-v2 purchase.
+     *
+     * This refunds the buyer escrow and bond, clears pending delivery counters, and does not apply seller payout/credit.
+     */
+    async refundUndeliveredPurchase(
+        purchaseId: number | bigint,
+        reason: UndeliveredRefundReason | number,
+    ): Promise<TxResult> {
+        return this.executePrepared(this.prepareRefundUndeliveredPurchase(purchaseId, reason), {
+            transport: "direct",
+            autoApprove: true,
+        });
+    }
+
     /** Read the configured max-sales cap for a private knowledge item. */
     async getSaleLimit(knowledgeId: number | bigint): Promise<bigint> {
         return this.ks.maxSalesByKnowledge(knowledgeId);
@@ -1617,6 +1676,31 @@ export class ChisikiSDK {
     /** Read the delivery config URI snapshotted for a private purchase. */
     async getPurchaseDeliveryConfigURI(purchaseId: number | bigint): Promise<string> {
         return this.ks.purchaseDeliveryConfigURI(purchaseId);
+    }
+
+    /** Read whether seller-initiated undelivered refund was already applied to a purchase. */
+    async isUndeliveredSellerRefundApplied(purchaseId: number | bigint): Promise<boolean> {
+        return this.ks.undeliveredSellerRefundApplied(purchaseId);
+    }
+
+    /** Read seller-initiated undelivered refund reason for a purchase. Zero means unset. */
+    async getUndeliveredRefundReason(purchaseId: number | bigint): Promise<number> {
+        return Number(await this.ks.undeliveredRefundReason(purchaseId));
+    }
+
+    /** Read how many pre-delivery refunds a seller has initiated. */
+    async getSellerUndeliveredRefundCount(seller: string): Promise<bigint> {
+        return this.ks.sellerUndeliveredRefundCount(ethers.getAddress(seller));
+    }
+
+    /** Read how many pre-delivery refunds a buyer has received. */
+    async getBuyerUndeliveredRefundReceivedCount(buyer: string): Promise<bigint> {
+        return this.ks.buyerUndeliveredRefundReceivedCount(ethers.getAddress(buyer));
+    }
+
+    /** Read how many pre-delivery refunds were applied for a knowledge item. */
+    async getKnowledgeUndeliveredRefundCount(knowledgeId: number | bigint): Promise<bigint> {
+        return this.ks.knowledgeUndeliveredRefundCount(knowledgeId);
     }
 
     /** Purchase a v2 knowledge item. Supports both public-v2 and private-v2 listings. */

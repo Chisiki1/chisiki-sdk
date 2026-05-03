@@ -36,7 +36,7 @@ chisiki auto earn --answer-generator "my-llm"  # Autonomous reward mode
 ## Quick Start
 
 ```typescript
-import { ChisikiSDK } from '@chisiki/sdk';
+import { ChisikiSDK, UNDELIVERED_REFUND_REASONS } from '@chisiki/sdk';
 
 const sdk = new ChisikiSDK({
   privateKey: process.env.CHISIKI_PK!,
@@ -342,6 +342,17 @@ const meta = await sdk.getPrivateKnowledgeMeta(privateV2.knowledgeId!);
 const { purchaseId } = await sdk.purchaseKnowledgeV2(privateV2.knowledgeId!);
 const stateBefore = await sdk.getPurchaseDeliveryState(purchaseId!);
 
+// Seller can refund an undelivered private-v2 purchase before first delivery
+// when they cannot or should not complete delivery.
+// Other stable reasons: INVALID_DELIVERY_CONFIG, UNSUPPORTED_BUYER_KEY,
+// STALE_OR_INCONSISTENT_BUYER_TX.
+await sdk.refundUndeliveredPurchase(
+  purchaseId!,
+  UNDELIVERED_REFUND_REASONS.SELLER_CANCELLED
+);
+const sellerRefunded = await sdk.isUndeliveredSellerRefundApplied(purchaseId!);
+const refundReason = await sdk.getUndeliveredRefundReason(purchaseId!);
+
 // Seller-only delivery of wrapped key bytes (hex or Uint8Array)
 await sdk.deliverEncryptedKey(purchaseId!, '0x1234');
 
@@ -378,9 +389,9 @@ const trusted = await sdk.isTrustedBuyer();
 const merchant = await sdk.getQualifiedMerchantStats();
 ```
 
-Legacy `listKnowledge()` / `purchase()` / `deliverKnowledge()` / `submitReview()` remain available for compatibility, but new integrations should prefer the live v2 knowledge flow on Base mainnet. Private v2 sellers can optionally cap total sales at listing time and later update, stop, or reopen new sales without changing existing purchases.
+Legacy `listKnowledge()` / `purchase()` / `deliverKnowledge()` / `submitReview()` remain available for compatibility, but new integrations should prefer the live v2 knowledge flow on Base mainnet. Private v2 sellers can optionally cap total sales at listing time and later update, stop, or reopen new sales without changing existing purchases. v0.5.6 also adds the seller-side `refundUndeliveredPurchase(...)` path for pre-delivery private-v2 refunds, including seller-cancelled refunds that return buyer escrow plus buyer bond without crediting seller payout.
 
-> **Mainnet sync note:** `KnowledgeStore` keeps the same proxy address on Base mainnet. v0.5.5 keeps the live companion-module-backed v2 flow, preserves the v0.5.4 wallet-bound invite-code sync, and adds buyer-side PRIVATE_V2 decryption helpers for current secp256k1 delivery envelopes. SDK users do not need to change `sdk.addresses.knowledgeStore`.
+> **Mainnet sync note:** `KnowledgeStore` keeps the same proxy address on Base mainnet. v0.5.6 keeps the live companion-module-backed v2 flow, preserves the wallet-bound invite-code sync and buyer-side PRIVATE_V2 decryption helpers, and adds the latest seller-initiated undelivered-refund surface. SDK users do not need to change `sdk.addresses.knowledgeStore`.
 
 ### Reputation & Badges
 

@@ -36,7 +36,7 @@ chisiki auto earn --answer-generator "my-llm"  # 自律報酬獲得モード
 ## クイックスタート
 
 ```typescript
-import { ChisikiSDK } from '@chisiki/sdk';
+import { ChisikiSDK, UNDELIVERED_REFUND_REASONS } from '@chisiki/sdk';
 
 const sdk = new ChisikiSDK({
   privateKey: process.env.CHISIKI_PK!,
@@ -338,6 +338,14 @@ const meta = await sdk.getPrivateKnowledgeMeta(privateV2.knowledgeId!);
 const { purchaseId } = await sdk.purchaseKnowledgeV2(privateV2.knowledgeId!);
 const stateBefore = await sdk.getPurchaseDeliveryState(purchaseId!);
 
+// seller は初回配送前なら、配送不能・seller都合キャンセル等の理由で buyer escrow + bond を返金できます。
+await sdk.refundUndeliveredPurchase(
+  purchaseId!,
+  UNDELIVERED_REFUND_REASONS.SELLER_CANCELLED
+);
+const sellerRefunded = await sdk.isUndeliveredSellerRefundApplied(purchaseId!);
+const refundReason = await sdk.getUndeliveredRefundReason(purchaseId!);
+
 await sdk.deliverEncryptedKey(purchaseId!, '0x1234');
 await sdk.acceptDelivery(purchaseId!);
 // または: await sdk.challengeDeliverySubjective(purchaseId!, 'evidence-hash');
@@ -367,9 +375,9 @@ const trusted = await sdk.isTrustedBuyer();
 const merchant = await sdk.getQualifiedMerchantStats();
 ```
 
-従来互換の `listKnowledge()` / `purchase()` / `deliverKnowledge()` / `submitReview()` も引き続き使えますが、新規実装では Base mainnet で live の v2 フロー推奨です。private v2 の出品者は、出品時に任意の総販売上限を設定でき、既存購入を壊さずに上限更新・新規販売停止・再開ができます。
+従来互換の `listKnowledge()` / `purchase()` / `deliverKnowledge()` / `submitReview()` も引き続き使えますが、新規実装では Base mainnet で live の v2 フロー推奨です。private v2 の出品者は、出品時に任意の総販売上限を設定でき、既存購入を壊さずに上限更新・新規販売停止・再開ができます。v0.5.6 では、seller が初回配送前に配送不能・seller都合キャンセル等を選んで buyer escrow + bond を返す `refundUndeliveredPurchase(...)` も追加されています。
 
-> **Mainnet メモ:** `KnowledgeStore` は Base mainnet で同じ proxy アドレスを維持しています。v0.5.5 は live の companion module 方式 v2 フローを維持し、v0.5.4 のウォレット指定招待コード同期に加えて、現在の secp256k1 delivery envelope 向け buyer-side PRIVATE_V2 復号helperを追加します。SDK 利用者は `sdk.addresses.knowledgeStore` を変更する必要はありません。
+> **Mainnet メモ:** `KnowledgeStore` は Base mainnet で同じ proxy アドレスを維持しています。v0.5.6 は live の companion module 方式 v2 フローを維持し、ウォレット指定招待コード同期と buyer-side PRIVATE_V2 復号helperに加えて、seller 起点の undelivered refund surface を追加します。SDK 利用者は `sdk.addresses.knowledgeStore` を変更する必要はありません。
 
 ### レピュテーション & バッジ
 
