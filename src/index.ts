@@ -20,7 +20,7 @@
  *
  * @see https://github.com/Chisiki1/chisiki-sdk
  * @license MIT
- * @version 0.5.2
+ * @version 0.5.3
  */
 
 import { ethers } from "ethers";
@@ -31,6 +31,8 @@ import REGISTRY_ABI from "./abi/AgentRegistry.json";
 import QA_ABI from "./abi/QAEscrow.json";
 import KS_ABI from "./abi/KnowledgeStore.json";
 import KS_V2_SALES_MODULE_ABI from "./abi/KnowledgeStoreV2SalesModule.json";
+import KS_V2_DELIVERY_MODULE_ABI from "./abi/KnowledgeStoreV2DeliveryModule.json";
+import KS_V2_MODULE_ABI from "./abi/KnowledgeStoreV2Module.json";
 import HOF_ABI from "./abi/HallOfFame.json";
 import REP_ABI from "./abi/Reputation.json";
 import TEMPO_ABI from "./abi/TempoReward.json";
@@ -44,6 +46,7 @@ const combineAbi = (...values: any[]) => {
     const combined: any[] = [];
     for (const value of values) {
         for (const item of abiOf(value) ?? []) {
+            if (item.type === "constructor") continue;
             const key = `${item.type}:${item.name ?? ""}:${(item.inputs ?? []).map((i: any) => i.type).join(",")}`;
             if (seen.has(key)) continue;
             seen.add(key);
@@ -55,7 +58,12 @@ const combineAbi = (...values: any[]) => {
 const CKT_INTERFACE_ABI = abiOf(CKT_ABI);
 const REGISTRY_INTERFACE_ABI = abiOf(REGISTRY_ABI);
 const QA_INTERFACE_ABI = abiOf(QA_ABI);
-const KS_INTERFACE_ABI = combineAbi(KS_ABI, KS_V2_SALES_MODULE_ABI);
+const KS_INTERFACE_ABI = combineAbi(
+    KS_ABI,
+    KS_V2_SALES_MODULE_ABI,
+    KS_V2_DELIVERY_MODULE_ABI,
+    KS_V2_MODULE_ABI,
+);
 const HOF_INTERFACE_ABI = abiOf(HOF_ABI);
 const REP_INTERFACE_ABI = abiOf(REP_ABI);
 const TEMPO_INTERFACE_ABI = abiOf(TEMPO_ABI);
@@ -206,6 +214,9 @@ export interface QualifiedMerchantStats {
     successCount: bigint;
     distinctBuyerCount: bigint;
     explicitRatingAverage: bigint;
+    /** Raw dispute count returned by the live AgentRegistry getter. */
+    disputeCountForSeller?: bigint;
+    /** Computed as disputeCountForSeller * 10000 / successCount, or 0 when successCount is zero. */
     disputeRateBps: bigint;
     currentBaseStake: bigint;
     hasRequiredBaseStake: boolean;
@@ -625,25 +636,45 @@ export class ChisikiSDK {
         return this.registry.isTrustedBuyer(buyer ?? this.address);
     }
 
-    /** Read raw qualified merchant counters used for Tier 2/3 upgrades. */
+    /**
+     * Read qualified merchant counters used for Tier 2/3 upgrades.
+     *
+     * The live AgentRegistry getter returns four values:
+     * success count, distinct buyer count, explicit rating average, and dispute count.
+     * The SDK keeps the enriched v0.5.x object shape by computing disputeRateBps
+     * locally and reading base-stake helpers separately.
+     */
     async getQualifiedMerchantStats(seller?: string): Promise<QualifiedMerchantStats> {
-        const stats = await this.registry.getQualifiedMerchantStats(seller ?? this.address);
+        const target = seller ?? this.address;
+        const stats = await this.registry.getQualifiedMerchantStats(target);
+        const successCount = stats[0];
+        const disputeCountForSeller = stats[3];
+        const disputeRateBps = successCount === 0n ? 0n : (disputeCountForSeller * 10000n) / successCount;
+        const [currentBaseStake, hasRequiredBaseStake] = await Promise.all([
+            this.registry.sellerBaseStakeAmount(target),
+            this.registry.hasSellerBaseStake(target),
+        ]);
         return {
-            successCount: stats[0],
+            successCount,
             distinctBuyerCount: stats[1],
             explicitRatingAverage: stats[2],
-            disputeRateBps: stats[3],
-            currentBaseStake: stats[4],
-            hasRequiredBaseStake: Boolean(stats[5]),
-        };
+            disputeCountForSeller,
+            disputeRateBps,
+            currentBaseStake,
+            hasRequiredBaseStake: Boolean(hasRequiredBaseStake),
+        } as QualifiedMerchantStats & { disputeCountForSeller: bigint };
     }
 
     async getExplicitSellerRatingAvg(seller?: string): Promise<bigint> {
         return this.registry.getExplicitSellerRatingAvg(seller ?? this.address);
     }
 
+    /** Compute merchant dispute rate from the current live 4-value merchant stats getter. */
     async getMerchantDisputeRateBps(seller?: string): Promise<bigint> {
-        return this.registry.getMerchantDisputeRateBps(seller ?? this.address);
+        const stats = await this.registry.getQualifiedMerchantStats(seller ?? this.address);
+        const successCount = stats[0];
+        const disputeCountForSeller = stats[3];
+        return successCount === 0n ? 0n : (disputeCountForSeller * 10000n) / successCount;
     }
 
     // ═══════════════════════════════════════════════════════════

@@ -169,7 +169,7 @@ test('postQuestion keeps backward-compatible direct flow via prepare/execute hel
   assert.equal(result.questionId, 77);
 });
 
-test('KnowledgeStore ABI matches live v2 sales-management surface', () => {
+test('KnowledgeStore ABI includes live v2 sales and delivery companion-module surface', () => {
   const sdk = makeSdk();
   const requiredFunctions = [
     'listPrivateKnowledgeWithLimit',
@@ -181,6 +181,14 @@ test('KnowledgeStore ABI matches live v2 sales-management surface', () => {
     'salesOpen',
     'rescueApplied',
     'purchaseDeliveryConfigURI',
+    'deliverEncryptedKey',
+    'redeliverEncryptedKey',
+    'acceptDelivery',
+    'challengeDeliverySubjective',
+    'challengeDeliveryObjective',
+    'finalizeCleanTimeout',
+    'finalizeUndelivered',
+    'purchaseKnowledgeV2',
   ];
 
   for (const name of requiredFunctions) {

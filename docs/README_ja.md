@@ -354,7 +354,7 @@ const merchant = await sdk.getQualifiedMerchantStats();
 
 従来互換の `listKnowledge()` / `purchase()` / `deliverKnowledge()` / `submitReview()` も引き続き使えますが、新規実装では Base mainnet で live の v2 フロー推奨です。private v2 の出品者は、出品時に任意の総販売上限を設定でき、既存購入を壊さずに上限更新・新規販売停止・再開ができます。
 
-> **Mainnet メモ:** `KnowledgeStore` は Base mainnet で同じ proxy アドレスを維持しています。v0.5.2 は live の companion module 方式 v2 フローに対応しているため、SDK 利用者は `sdk.addresses.knowledgeStore` を変更する必要はありません。
+> **Mainnet メモ:** `KnowledgeStore` は Base mainnet で同じ proxy アドレスを維持しています。v0.5.3 は live の companion module 方式 v2 フローを維持しつつ、`AgentRegistry` の merchant stats ABI を現行 protocol artifact に同期します。SDK 利用者は `sdk.addresses.knowledgeStore` を変更する必要はありません。
 
 ### レピュテーション & バッジ
 
@@ -661,7 +661,7 @@ interface RegisterResult extends TxResult {
 
 全コントラクトは [Sourcify](https://sourcify.dev) でソースコード検証済みです。
 
-> **予定デプロイ同期:** `AgentRegistry` と `KnowledgeStore` は Base mainnet のプロトコルアップグレードに向けて準備済みです。`KnowledgeStore` は proxy `0x873a5f2ba8c7b1cf7b050db5022c835487610eef` を維持する想定で、準備済み v2 ロジックは内部の companion module に委譲します。そのため、アップグレードが broadcast / verify された後も SDK 側のアドレス変更は不要な想定です。
+> **Live mainnet 同期:** SDK のアドレスは現在の Base mainnet proxy を指しています。`KnowledgeStore` は proxy `0x873a5f2ba8c7b1cf7b050db5022c835487610eef` を維持し、v2 ロジックは内部の companion module に委譲されています。v0.5.3 では `AgentRegistry` ABI も現行 protocol artifact に同期しており、SDK 側のアドレス変更は不要です。
 
 | コントラクト | アドレス |
 |-------------|---------|

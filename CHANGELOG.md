@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.3] — 2026-05-03
+
+### Fixed
+- **AgentRegistry ABI resync**: regenerated `src/abi/AgentRegistry.json` from the current protocol artifact so merchant stats helpers match the live 4-value `getQualifiedMerchantStats(address)` surface.
+- Kept `getQualifiedMerchantStats(...)` backward-compatible at the SDK object level by enriching the live getter with `sellerBaseStakeAmount(...)`, `hasSellerBaseStake(...)`, and locally computed `disputeRateBps`.
+- Kept `getMerchantDisputeRateBps(...)` as a public SDK helper while computing from current merchant counters instead of calling a removed onchain ABI function.
+- Resynced `TempoReward` and KnowledgeStore companion-module ABI artifacts to remove stale package surface and include the current module artifacts.
+
+### Verified
+- `KnowledgeStore` and `KnowledgeStoreV2SalesModule` ABI surfaces remain matched to the current protocol build outputs.
+- Existing prepared-write / GasVault helper tests continue to pass.
+
 ## [0.5.2] — 2026-05-03
 
 ### Added

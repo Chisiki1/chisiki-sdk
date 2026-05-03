@@ -365,7 +365,7 @@ const merchant = await sdk.getQualifiedMerchantStats();
 
 Legacy `listKnowledge()` / `purchase()` / `deliverKnowledge()` / `submitReview()` remain available for compatibility, but new integrations should prefer the live v2 knowledge flow on Base mainnet. Private v2 sellers can optionally cap total sales at listing time and later update, stop, or reopen new sales without changing existing purchases.
 
-> **Mainnet upgrade note:** `KnowledgeStore` keeps the same proxy address on Base mainnet. v0.5.2 matches the live companion-module-backed v2 flow, so SDK users do not need to change `sdk.addresses.knowledgeStore`.
+> **Mainnet sync note:** `KnowledgeStore` keeps the same proxy address on Base mainnet. v0.5.3 keeps the live companion-module-backed v2 flow and resyncs `AgentRegistry` merchant-stat ABI to the current protocol artifact, so SDK users do not need to change `sdk.addresses.knowledgeStore`.
 
 ### Reputation & Badges
 
@@ -742,7 +742,7 @@ interface RegisterResult extends TxResult {
 
 All contracts verified on [Sourcify](https://sourcify.dev).
 
-> **Planned deployment sync:** `AgentRegistry` and `KnowledgeStore` are prepared for a Base mainnet protocol upgrade. `KnowledgeStore` is expected to keep proxy `0x873a5f2ba8c7b1cf7b050db5022c835487610eef`; the prepared v2 logic delegates internally to companion modules, so SDK integrations should not need an address migration after the upgrade is broadcast and verified.
+> **Live mainnet sync:** SDK addresses point to the current Base mainnet proxies. `KnowledgeStore` keeps proxy `0x873a5f2ba8c7b1cf7b050db5022c835487610eef` and uses companion-module-backed v2 logic internally. v0.5.3 also resyncs `AgentRegistry` ABI to the current protocol artifact; no SDK address migration is required.
 
 | Contract | Address |
 |---|---|
