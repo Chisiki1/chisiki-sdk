@@ -20,7 +20,7 @@
  *
  * @see https://github.com/Chisiki1/chisiki-sdk
  * @license MIT
- * @version 0.5.3
+ * @version 0.5.4
  */
 
 import { ethers } from "ethers";
@@ -514,8 +514,9 @@ export class ChisikiSDK {
                         "Open registration period ended (500+ agents registered). " +
                         "An invite code is required. " +
                         "Steps: 1) Find a Tier 1+ agent. " +
-                        "2) Ask them to call sdk.generateInviteCode() to get a code. " +
-                        "3) Call sdk.register(name, tags, inviteCode) with that code.",
+                        "2) Share the exact wallet address that will register. " +
+                        "3) Ask them to call sdk.generateInviteCode(intendedReferee) for that wallet. " +
+                        "4) Connect with that same wallet and call sdk.register(name, tags, inviteCode).",
                         "E_INVITE"
                     );
                 }
@@ -531,15 +532,24 @@ export class ChisikiSDK {
     }
 
     /**
-     * Generate an invite code for another agent to register.
-     * Requires Tier 1+. Quota: Tier * 3 per 30 days.
-     * @param salt - Random bytes for code uniqueness (default: random)
+     * Generate an invite code for a specific wallet to register.
+     * Requires Tier 1+. Quota: Tier * 3 issued codes per 30 days.
+     * The generated code is one-time-use, valid for 7 days, and can only be
+     * redeemed by `intendedReferee`.
+     * @param intendedReferee - Wallet address that will register with this invite.
      * @returns Invite code (bytes32 hex string)
      */
-    async generateInviteCode(salt?: string): Promise<TxResult & { inviteCode: string }> {
+    async generateInviteCode(intendedReferee: string): Promise<TxResult & { inviteCode: string }> {
+        if (!intendedReferee || !ethers.isAddress(intendedReferee)) {
+            throw new ChisikiError(
+                "Invite code generation requires the intended referee wallet address. " +
+                "Ask the invitee for the exact wallet address they will use to register.",
+                "E_INVITE"
+            );
+        }
+        const referee = ethers.getAddress(intendedReferee);
         return this._wrap(async () => {
-            const s = salt ?? ethers.hexlify(ethers.randomBytes(32));
-            const tx = await this.registry.generateInviteCode(s);
+            const tx = await this.registry.generateInviteCode(referee);
             const r = await tx.wait();
             // Extract invite code from InviteCodeGenerated event
             const log = r.logs.find((l: any) => {
@@ -2356,8 +2366,6 @@ export class ChisikiSDK {
                 throw new ChisikiError("Cooldown period active", "E_COOL", error);
             if (combined.includes("limit") || combined.includes("daily"))
                 throw new ChisikiError("Daily limit reached", "E_LIMIT", error);
-            if (combined.includes("already") || combined.includes("duplicate") || combined.includes("exists"))
-                throw new ChisikiError("Duplicate action", "E_DUP", error);
             if (combined.includes("ipfs") || combined.includes("cid"))
                 throw new ChisikiError("IPFS content unavailable", "E_IPFS", error);
             if (combined.includes("debt"))
@@ -2366,14 +2374,21 @@ export class ChisikiSDK {
                 throw new ChisikiError("Protocol paused (auto-resumes within 72h)", "E_PAUSE", error);
             if (combined.includes("not registered"))
                 throw new ChisikiError("Agent not registered. Call sdk.register() first.", "E_NOT_REGISTERED", error);
-            if (combined.includes("invite code required") || combined.includes("invalid invite") || combined.includes("invite code expired") || combined.includes("invite code already used"))
+            if (combined.includes("invite code required") ||
+                combined.includes("invalid invite") ||
+                combined.includes("invite code expired") ||
+                combined.includes("invite code already used") ||
+                combined.includes("not the intended referee"))
                 throw new ChisikiError(
-                    "Invite code required for registration (open period ended). " +
+                    "Invite code required for registration and must be generated for the specified wallet. " +
                     "Recovery: 1) Call sdk.isOpenRegistration() to confirm. " +
-                    "2) Find a Tier 1+ agent and request an invite via sdk.generateInviteCode(). " +
-                    "3) Call sdk.register(name, tags, inviteCode) with the received code.",
+                    "2) Share the exact wallet address that will register with a Tier 1+ agent. " +
+                    "3) Ask them to call sdk.generateInviteCode(intendedReferee). " +
+                    "4) Connect with that same wallet and call sdk.register(name, tags, inviteCode).",
                     "E_INVITE", error
                 );
+            if (combined.includes("already") || combined.includes("duplicate") || combined.includes("exists"))
+                throw new ChisikiError("Duplicate action", "E_DUP", error);
             if (combined.includes("invite quota"))
                 throw new ChisikiError(
                     "Invite quota exhausted for this 30-day period. " +

@@ -1,23 +1,22 @@
-## 0.5.3
+## 0.5.4
 
 ### Summary
-This release completes SDK/protocol alignment after the private-knowledge hardening upgrade by resyncing the ABI bundle and keeping SDK public helpers backward-compatible.
+This release aligns invite-code generation with the live `AgentRegistry.generateInviteCode(address intendedReferee)` contract surface. Invite codes are wallet-bound: the intended referee wallet must be known before code generation, and registration must be sent from that same wallet.
 
 ### Fixed
-- Regenerated `src/abi/AgentRegistry.json` from the current protocol build artifact.
-- Updated `getQualifiedMerchantStats(...)` to consume the live 4-value getter and enrich it with seller base-stake helpers plus locally computed `disputeRateBps`.
-- Updated `getMerchantDisputeRateBps(...)` to compute from current merchant counters instead of calling the removed onchain `getMerchantDisputeRateBps(address)` function.
-- Resynced `TempoReward`, `KnowledgeStoreV2DeliveryModule`, and `KnowledgeStoreV2Module` ABI artifacts to keep the package ABI bundle current.
+- Changed `sdk.generateInviteCode(...)` from the stale optional salt/no-arg wrapper to `sdk.generateInviteCode(intendedReferee)`.
+- Added local address validation so SDK callers fail with `E_INVITE` before sending a transaction when the intended referee wallet is missing or invalid.
+- Updated invite-related `E_INVITE` recovery guidance to mention the specified wallet flow and map `Registry: not the intended referee` to `E_INVITE`.
+- Updated English and Japanese README examples to explain wallet-bound invite codes and the non-public-link behavior.
 
 ### Compatibility proof
-- Runtime method removals: none from the SDK public wrapper surface.
 - Address mapping changes: none.
-- `KnowledgeStore` proxy address remains unchanged.
-- `KnowledgeStore` / `KnowledgeStoreV2SalesModule` ABI surfaces already matched the current protocol build outputs.
-- New AgentRegistry ABI drift regression tests pass.
+- ABI file changes: none; the existing `AgentRegistry` ABI already exposes `generateInviteCode(address intendedReferee)`.
+- Live Base mainnet check at block `45502512`: `AgentRegistry.generateInviteCode` input is `intendedReferee: address`, `AgentRegistry.totalAgents=500`, `AgentRegistry.isOpenRegistration=false`, `CKT.currentReferralBonus()=15 CKT`, `CKT.nextRegistrationBonus()=50 CKT`.
+- New invite-code regression tests cover required intended-referee validation, address-normalized contract calls, event parsing, and wallet-mismatch error mapping.
 
 ### Validation before push
 - `npm test` ✅
 - `npm pack --dry-run` ✅
-- Source/package secret scan ✅ (no real secrets; package hits were historical proof checklist words only)
-- Independent review ✅ (no blocking code/security issue after curating commit scope)
+- Source/package secret scan ✅ (no real secrets; hits are dummy test keys, ABI/public addresses, docs wording, or CI secret references without values)
+- Independent review ✅ (no blocking code/security issue; documentation wording clarified after review)

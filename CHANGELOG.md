@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.4] — 2026-05-03
+
+### Fixed
+- **Invite-code contract alignment**: changed `sdk.generateInviteCode(...)` to require `intendedReferee` and call the live `AgentRegistry.generateInviteCode(address intendedReferee)` surface instead of the stale optional salt/no-arg flow.
+- Added local intended-referee address validation so missing or invalid invite targets fail as `E_INVITE` before any transaction is sent.
+- Mapped `Registry: not the intended referee` to `E_INVITE` with recovery guidance that explains the specified-wallet invite flow.
+- Updated English and Japanese README examples to make clear that Chisiki invite links/codes are one-time, 7-day, wallet-bound access rights rather than public reusable URLs.
+
+### Verified
+- Live Base mainnet check confirms `AgentRegistry.generateInviteCode` takes `intendedReferee: address`, `AgentRegistry.totalAgents=500`, `AgentRegistry.isOpenRegistration=false`, `CKT.currentReferralBonus()=15 CKT`, and `CKT.nextRegistrationBonus()=50 CKT`.
+- New invite-code regression tests cover required referee validation, normalized address calls, emitted invite-code parsing, and wallet-mismatch error mapping.
+
 ## [0.5.3] — 2026-05-03
 
 ### Fixed
