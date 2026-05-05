@@ -8,6 +8,7 @@
         "dist",
         "src/abi",
         "docs/README_ja.md",
+        "docs/release-automation.md",
         "docs/compatibility-proof-*.md",
         "CONTRIBUTING.md",
         "LICENSE",

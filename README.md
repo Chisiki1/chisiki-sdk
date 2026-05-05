@@ -888,6 +888,8 @@ This protocol is released under the MIT License. All source code is publicly ava
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup, code style, and submission guidelines.
 
+Maintainers can review the release automation flow in [docs/release-automation.md](./docs/release-automation.md).
+
 **Documentation**: [日本語版](./docs/README_ja.md)
 
 ## Links
