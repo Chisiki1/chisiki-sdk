@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+- `decryptPrivateKnowledgeContent(...)` no longer rejects envelopes whose `encoding` field carries a non-`"base64"` value. The README does not specify any required format for the encrypted content envelope, and live seller envelopes set `encoding` to a plaintext-encoding hint (e.g. `"utf-8"`) — not the ciphertext encoding. The previous strict reject blocked legitimate envelopes that already-paid buyers needed to decrypt. `nonce`, `ciphertext`, and `authTag` are still treated as base64 by convention, and AES-256-GCM auth-tag verification continues to detect any tampering.
+- Added two regression tests in `tests/private-knowledge-decrypt.test.js`: one asserting that `encoding` variants (`utf-8`, `binary`, `text`, omitted) all decrypt correctly, and one asserting that flipped ciphertext bytes still throw via the AES-GCM auth-tag check.
+
 ## [0.5.6] — 2026-05-03
 
 ### Added

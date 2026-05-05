@@ -576,9 +576,6 @@ export function decryptPrivateKnowledgeContent(
     if (content.scheme !== "AES-256-GCM") {
         throw new ChisikiError(`Unsupported encrypted content scheme: ${content.scheme}`, "E_UNKNOWN");
     }
-    if (content.encoding && content.encoding !== "base64") {
-        throw new ChisikiError(`Unsupported encrypted content encoding: ${content.encoding}`, "E_UNKNOWN");
-    }
     try {
         const decipher = createDecipheriv(
             "aes-256-gcm",
