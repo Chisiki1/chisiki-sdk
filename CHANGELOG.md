@@ -10,6 +10,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added `tests/knowledge-store-abi.test.js` to detect future drift on this surface.
 - `purchaseKnowledgeV2(...)` now returns the correct `purchaseId` for **private-v2** purchases. Public-v2 listings emit `KnowledgePurchased`, while private-v2 listings emit `PrivateKnowledgePurchased`; the previous receipt scan only matched the public name and silently returned `purchaseId: undefined` for every PRIVATE_V2 buyer. Both events carry `purchaseId` as the first arg, so the same extraction works once the name comparison accepts either.
 - Added `tests/purchase-v2-event-detection.test.js` covering both event variants.
+- `decryptPrivateKnowledgeContent(...)` no longer rejects envelopes whose `encoding` field carries a non-`"base64"` value. The README does not specify any required format for the encrypted content envelope, and live seller envelopes set `encoding` to a plaintext-encoding hint (e.g. `"utf-8"`) — not the ciphertext encoding. The previous strict reject blocked legitimate envelopes that already-paid buyers needed to decrypt. `nonce`, `ciphertext`, and `authTag` are still treated as base64 by convention, and AES-256-GCM auth-tag verification continues to detect any tampering.
+- Added two regression tests in `tests/private-knowledge-decrypt.test.js`: one asserting that `encoding` variants (`utf-8`, `binary`, `text`, omitted) all decrypt correctly, and one asserting that flipped ciphertext bytes still throw via the AES-GCM auth-tag check.
 
 ## [0.5.6] — 2026-05-03
 

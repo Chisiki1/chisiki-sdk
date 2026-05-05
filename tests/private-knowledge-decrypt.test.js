@@ -97,6 +97,50 @@ test('decryptPrivateKnowledgeContent decrypts AES-256-GCM private content and ve
   assert.equal(Buffer.from(plaintext).toString('utf8'), 'private entry filter spec');
 });
 
+test('decryptPrivateKnowledgeContent accepts envelopes whose `encoding` field carries a plaintext hint (utf-8) or is omitted', () => {
+  const keyPayload = {
+    v: 1,
+    pid: '7',
+    alg: 'AES-256-GCM',
+    k: Buffer.alloc(32, 4).toString('base64'),
+    n: Buffer.alloc(12, 5).toString('base64'),
+    tag: Buffer.alloc(16, 6).toString('base64'),
+    h: '0x' + 'cc'.repeat(32),
+  };
+  const base = makeEncryptedContent('hello world', keyPayload);
+
+  // ciphertext / nonce / authTag are always base64 by convention; the `encoding`
+  // field is a plaintext-encoding hint set by sellers and must not gate decryption.
+  for (const variant of [
+    { ...base, encoding: 'utf-8' },
+    { ...base, encoding: 'binary' },
+    { ...base, encoding: 'text' },
+    (() => { const c = { ...base }; delete c.encoding; return c; })(),
+  ]) {
+    const plaintext = decryptPrivateKnowledgeContent(variant, keyPayload);
+    assert.equal(Buffer.from(plaintext).toString('utf8'), 'hello world');
+  }
+});
+
+test('decryptPrivateKnowledgeContent still detects ciphertext tampering via AES-GCM auth tag', () => {
+  const keyPayload = {
+    v: 1,
+    pid: '7',
+    alg: 'AES-256-GCM',
+    k: Buffer.alloc(32, 4).toString('base64'),
+    n: Buffer.alloc(12, 5).toString('base64'),
+    tag: Buffer.alloc(16, 6).toString('base64'),
+    h: '0x' + 'cc'.repeat(32),
+  };
+  const content = makeEncryptedContent('hello world', keyPayload);
+  // flip a byte of the ciphertext: AES-GCM auth tag mismatch should still trigger
+  // a decryption failure regardless of the (relaxed) encoding check.
+  const tampered = Buffer.from(content.ciphertext, 'base64');
+  tampered[0] ^= 0xff;
+  const corrupted = { ...content, ciphertext: tampered.toString('base64') };
+  assert.throws(() => decryptPrivateKnowledgeContent(corrupted, keyPayload));
+});
+
 test('ChisikiSDK instance exposes buyer decrypt helpers using explicit delivery private key', () => {
   const sdk = new ChisikiSDK({ privateKey: PRIVATE_KEY, rpcUrl: 'http://127.0.0.1:8545', chainId: 8453 });
   assert.equal(typeof sdk.decryptWrappedKey, 'function');
