@@ -1708,7 +1708,12 @@ export class ChisikiSDK {
             const tx = await this.ks.purchaseKnowledgeV2(knowledgeId);
             const receipt = await tx.wait();
             const ev = receipt.logs.find((l: any) => {
-                try { return this.ks.interface.parseLog(l)?.name === "KnowledgePurchased"; } catch { return false; }
+                try {
+                    const name = this.ks.interface.parseLog(l)?.name;
+                    return name === "KnowledgePurchased" || name === "PrivateKnowledgePurchased";
+                } catch {
+                    return false;
+                }
             });
             const purchaseId = ev ? Number(this.ks.interface.parseLog(ev)?.args[0]) : undefined;
             return { ...this._tx(receipt), purchaseId };
