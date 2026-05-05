@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+- `purchaseKnowledgeV2(...)` now returns the correct `purchaseId` for **private-v2** purchases. Public-v2 listings emit `KnowledgePurchased`, while private-v2 listings emit `PrivateKnowledgePurchased`; the previous receipt scan only matched the public name and silently returned `purchaseId: undefined` for every PRIVATE_V2 buyer. Both events carry `purchaseId` as the first arg, so the same extraction works once the name comparison accepts either.
+- Added `tests/purchase-v2-event-detection.test.js` covering both event variants.
+
 ## [0.5.6] — 2026-05-03
 
 ### Added
