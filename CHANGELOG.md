@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+- ABI bundle: `KnowledgeStore.getWrappedKey` is now declared as `view` to match the underlying `KnowledgeStoreV2DeliveryModule` implementation. Previously the proxy ABI marked it `nonpayable`, causing ethers v6 to broadcast a transaction (returning a `TransactionResponse`) instead of performing a static call. As a result every PRIVATE_V2 buyer hit `INVALID_ARGUMENT: invalid BytesLike value` from `sdk.getWrappedKey(...)` / `sdk.getWrappedKeyInfo(...)`.
+- Added `tests/knowledge-store-abi.test.js` to detect future drift on this surface.
+
 ## [0.5.6] — 2026-05-03
 
 ### Added
