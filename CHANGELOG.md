@@ -3,17 +3,17 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.5.7](https://github.com/Chisiki1/chisiki-sdk/compare/v0.5.6...v0.5.7) (2026-05-06)
 
-### Fixed
-- ABI bundle: `KnowledgeStore.getWrappedKey` is now declared as `view` to match the underlying `KnowledgeStoreV2DeliveryModule` implementation. Previously the proxy ABI marked it `nonpayable`, causing ethers v6 to broadcast a transaction (returning a `TransactionResponse`) instead of performing a static call. As a result every PRIVATE_V2 buyer hit `INVALID_ARGUMENT: invalid BytesLike value` from `sdk.getWrappedKey(...)` / `sdk.getWrappedKeyInfo(...)`.
-- Added `tests/knowledge-store-abi.test.js` to detect future drift on this surface.
-- `purchaseKnowledgeV2(...)` now returns the correct `purchaseId` for **private-v2** purchases. Public-v2 listings emit `KnowledgePurchased`, while private-v2 listings emit `PrivateKnowledgePurchased`; the previous receipt scan only matched the public name and silently returned `purchaseId: undefined` for every PRIVATE_V2 buyer. Both events carry `purchaseId` as the first arg, so the same extraction works once the name comparison accepts either.
-- Added `tests/purchase-v2-event-detection.test.js` covering both event variants.
-- `decryptPrivateKnowledgeContent(...)` no longer rejects envelopes whose `encoding` field carries a non-`"base64"` value. The README does not specify any required format for the encrypted content envelope, and live seller envelopes set `encoding` to a plaintext-encoding hint (e.g. `"utf-8"`) — not the ciphertext encoding. The previous strict reject blocked legitimate envelopes that already-paid buyers needed to decrypt. `nonce`, `ciphertext`, and `authTag` are still treated as base64 by convention, and AES-256-GCM auth-tag verification continues to detect any tampering.
-- Added two regression tests in `tests/private-knowledge-decrypt.test.js`: one asserting that `encoding` variants (`utf-8`, `binary`, `text`, omitted) all decrypt correctly, and one asserting that flipped ciphertext bytes still throw via the AES-GCM auth-tag check.
-- `purchaseKnowledgeV2(...)` auto-approve now covers the **buyer bond** in addition to `price`. Previously the helper only approved `item.price`, so every PRIVATE_V2 purchase reverted with `ERC20InsufficientAllowance(KnowledgeStore, 0, bondAmount)`. The new allowance mirrors the protocol's `_calculateBuyerBond(price)` formula: `(price * 5) / 1000` clamped to `[1 CKT, 1000 CKT]` (i.e. 0.5% of price with a 1 CKT floor and 1000 CKT ceiling).
-- Added `tests/purchase-v2-bond-allowance.test.js` covering the floor (`price ≤ 200 CKT`), the percentage range (`200 < price < 200,000 CKT`), and the ceiling (`price ≥ 200,000 CKT`).
+
+### Bug Fixes
+
+* **abi:** mark KnowledgeStore.getWrappedKey as view ([#2](https://github.com/Chisiki1/chisiki-sdk/issues/2)) ([65f51a2](https://github.com/Chisiki1/chisiki-sdk/commit/65f51a272465bb7e0448eb2d1a2537eba979069b))
+* **sdk:** approve PRIVATE_V2 buyer bond ([d34526d](https://github.com/Chisiki1/chisiki-sdk/commit/d34526db6e8c99dd65e516794bbc654a4f9dd123))
+* **sdk:** purchaseKnowledgeV2 detects private purchase event ([#3](https://github.com/Chisiki1/chisiki-sdk/issues/3)) ([56b587f](https://github.com/Chisiki1/chisiki-sdk/commit/56b587ff6e57139152e4c285ca9bd0fcece2c6d4))
+* **sdk:** relax private content encoding hints ([#5](https://github.com/Chisiki1/chisiki-sdk/issues/5)) ([6238a9e](https://github.com/Chisiki1/chisiki-sdk/commit/6238a9e2009d722b2bc1c9a90c328894618c6fb3))
+
+## [Unreleased]
 
 ## [0.5.6] — 2026-05-03
 
