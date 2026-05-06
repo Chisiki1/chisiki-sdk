@@ -70,6 +70,27 @@ const REP_INTERFACE_ABI = abiOf(REP_ABI);
 const TEMPO_INTERFACE_ABI = abiOf(TEMPO_ABI);
 const REPORT_INTERFACE_ABI = abiOf(REPORT_ABI);
 const GASVAULT_INTERFACE_ABI = abiOf(GASVAULT_ABI);
+
+/**
+ * PRIVATE_V2 buyer bond formula. Mirrors the protocol's `_calculateBuyerBond(price)`:
+ *
+ *   percentageBond = (price * 5) / 1000           // 0.5%
+ *   if (percentageBond < 1 CKT)    return 1 CKT   // floor
+ *   if (percentageBond > 1000 CKT) return 1000 CKT // ceiling
+ *   return percentageBond
+ *
+ * Update if the protocol changes the rate or caps.
+ */
+const BUYER_BOND_BPS_NUM = 5n;
+const BUYER_BOND_BPS_DEN = 1000n;
+const BUYER_BOND_MIN = 10n ** 18n;            // 1 CKT
+const BUYER_BOND_MAX = 1000n * 10n ** 18n;    // 1000 CKT
+function calculateBuyerBond(price: bigint): bigint {
+    const percentageBond = (price * BUYER_BOND_BPS_NUM) / BUYER_BOND_BPS_DEN;
+    if (percentageBond < BUYER_BOND_MIN) return BUYER_BOND_MIN;
+    if (percentageBond > BUYER_BOND_MAX) return BUYER_BOND_MAX;
+    return percentageBond;
+}
 const GASVAULT_ROUTER_INTERFACE_ABI = abiOf(GASVAULT_ROUTER_ABI);
 
 export { ADDRESSES, CHAIN_IDS, DEPLOY_BLOCK, type ChisikiAddresses } from "./addresses";
@@ -1704,7 +1725,8 @@ export class ChisikiSDK {
     async purchaseKnowledgeV2(knowledgeId: number): Promise<PurchaseKnowledgeResult> {
         return this._wrap(async () => {
             const item = await this.ks.getKnowledge(knowledgeId);
-            await this._ensureAllowance(this.addresses.knowledgeStore, item.price);
+            const bond = calculateBuyerBond(item.price);
+            await this._ensureAllowance(this.addresses.knowledgeStore, item.price + bond);
             const tx = await this.ks.purchaseKnowledgeV2(knowledgeId);
             const receipt = await tx.wait();
             const ev = receipt.logs.find((l: any) => {
