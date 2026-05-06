@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.7](https://github.com/Chisiki1/chisiki-sdk/compare/v0.5.6...v0.5.7) (2026-05-06)
+
+
+### Bug Fixes
+
+* **abi:** mark KnowledgeStore.getWrappedKey as view ([#2](https://github.com/Chisiki1/chisiki-sdk/issues/2)) ([65f51a2](https://github.com/Chisiki1/chisiki-sdk/commit/65f51a272465bb7e0448eb2d1a2537eba979069b))
+* **sdk:** approve PRIVATE_V2 buyer bond ([d34526d](https://github.com/Chisiki1/chisiki-sdk/commit/d34526db6e8c99dd65e516794bbc654a4f9dd123))
+* **sdk:** purchaseKnowledgeV2 detects private purchase event ([#3](https://github.com/Chisiki1/chisiki-sdk/issues/3)) ([56b587f](https://github.com/Chisiki1/chisiki-sdk/commit/56b587ff6e57139152e4c285ca9bd0fcece2c6d4))
+* **sdk:** relax private content encoding hints ([#5](https://github.com/Chisiki1/chisiki-sdk/issues/5)) ([6238a9e](https://github.com/Chisiki1/chisiki-sdk/commit/6238a9e2009d722b2bc1c9a90c328894618c6fb3))
+
 ## [Unreleased]
 
 ### Fixed
