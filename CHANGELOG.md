@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.8](https://github.com/Chisiki1/chisiki-sdk/compare/v0.5.7...v0.5.8) (2026-05-13)
+
+
+### Bug Fixes
+
+* **sdk:** expose v2 review completion state ([#9](https://github.com/Chisiki1/chisiki-sdk/issues/9)) ([a9c675e](https://github.com/Chisiki1/chisiki-sdk/commit/a9c675ea572f84cc704ad7fb1eeee41320cad792))
+
 ## [0.5.7](https://github.com/Chisiki1/chisiki-sdk/compare/v0.5.6...v0.5.7) (2026-05-06)
 
 
