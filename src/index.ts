@@ -254,6 +254,15 @@ export interface PrivateKnowledgeMeta {
     encryptedHash: string;
 }
 
+export type PurchaseDeliveryRecommendedAction =
+    | "deliver"
+    | "decrypt_and_review"
+    | "review_available"
+    | "accepted_review_available"
+    | "finalized"
+    | "challenge_or_wait"
+    | "unknown";
+
 export interface PurchaseDeliveryState {
     state: number;
     attemptCount: number;
@@ -263,6 +272,13 @@ export interface PurchaseDeliveryState {
     snapshotHash: string;
     bondAmount: bigint;
     credited: boolean;
+    /** True once the buyer has explicitly called review(...) for a v2 purchase. */
+    explicitReviewSubmitted: boolean;
+    /** Raw getPurchase(purchaseId).reviewed flag; in v2 it means the unreviewed queue is closed. */
+    reviewClosed: boolean;
+    /** SDK-side estimate. The contract is still the source of truth. */
+    canSubmitReview: boolean;
+    recommendedNextAction: PurchaseDeliveryRecommendedAction;
 }
 
 export interface WrappedKeyInfo {
@@ -1756,7 +1772,7 @@ export class ChisikiSDK {
         });
     }
 
-    /** Buyer accepts the delivered wrapped key and releases payout. */
+    /** Buyer accepts the delivered wrapped key and releases payout. This does not submit a rating; call `submitReview(...)` explicitly if the buyer wants to rate. */
     async acceptDelivery(purchaseId: number): Promise<TxResult> {
         return this._wrap(async () => {
             const tx = await this.ks.acceptDelivery(purchaseId);
@@ -1829,23 +1845,52 @@ export class ChisikiSDK {
         };
     }
 
-    /** Read private delivery state for a purchase from the live per-field getters. */
+    /** Read private/public-v2 delivery/review state for a purchase from the live per-field getters. */
     async getPurchaseDeliveryState(purchaseId: number): Promise<PurchaseDeliveryState> {
-        const [state, attemptCount, deliveryConfigSnapshot, bondAmount, credited] = await Promise.all([
+        const [state, attemptCount, deliveryConfigSnapshot, bondAmount, credited, explicitReviewSubmitted, purchase] = await Promise.all([
             this.ks.deliveryState(purchaseId),
             this.ks.deliveryAttemptCount(purchaseId),
             this.ks.purchaseDeliveryConfigSnapshot(purchaseId),
             this.ks.buyerBondAmount(purchaseId),
             this.ks.creditApplied(purchaseId),
+            this.ks.explicitReviewSubmitted(purchaseId),
+            this.ks.getPurchase(purchaseId),
         ]);
+        const stateNumber = Number(state);
         const snapshotHash = String(deliveryConfigSnapshot);
+        const reviewClosed = Boolean(purchase.reviewed);
+        const delivered = Boolean(purchase.delivered);
+        const explicitSubmitted = Boolean(explicitReviewSubmitted);
+        const canSubmitReview = !explicitSubmitted && delivered && (
+            stateNumber === 2 || // DELIVERED_AWAITING_RESPONSE
+            stateNumber === 5 || // REDELIVERED_AWAITING_RESPONSE
+            stateNumber === 6    // CLEAN_FINALIZED, including PUBLIC_V2 and accepted PRIVATE_V2
+        );
+        let recommendedNextAction: PurchaseDeliveryRecommendedAction = "unknown";
+        if (canSubmitReview && (stateNumber === 2 || stateNumber === 5)) {
+            recommendedNextAction = "decrypt_and_review";
+        } else if (canSubmitReview && reviewClosed) {
+            recommendedNextAction = "accepted_review_available";
+        } else if (canSubmitReview) {
+            recommendedNextAction = "review_available";
+        } else if (stateNumber === 1) {
+            recommendedNextAction = "deliver";
+        } else if (stateNumber === 3 || stateNumber === 4) {
+            recommendedNextAction = "challenge_or_wait";
+        } else if (stateNumber === 6 || stateNumber === 7 || stateNumber === 8 || stateNumber === 9) {
+            recommendedNextAction = "finalized";
+        }
         return {
-            state: Number(state),
+            state: stateNumber,
             attemptCount: Number(attemptCount),
             deliveryConfigSnapshot: snapshotHash,
             snapshotHash,
             bondAmount,
             credited: Boolean(credited),
+            explicitReviewSubmitted: explicitSubmitted,
+            reviewClosed,
+            canSubmitReview,
+            recommendedNextAction,
         };
     }
 
@@ -1935,9 +1980,14 @@ export class ChisikiSDK {
     // ═══════════════════════════════════════════════════════════
 
     /**
-     * Submit an explicit review for a legacy purchase.
-     * For private-v2 purchases, use `acceptDelivery()` / challenge / timeout finalizers instead.
-     * @param purchaseId - Purchase ID (must be buyer, must be delivered)
+     * Submit an explicit product/seller review.
+     *
+     * Legacy purchases still require `delivered && !reviewed` on-chain.
+     * PUBLIC_V2 purchases can be reviewed once after purchase finalization.
+     * PRIVATE_V2 purchases can be reviewed once after encrypted delivery, either before
+     * clean acceptance or after `CLEAN_FINALIZED` when no explicit review was submitted yet.
+     *
+     * @param purchaseId - Purchase ID (caller must be the buyer)
      * @param productScore - Product quality score (1-5)
      * @param sellerScore - Seller reliability score (1-5)
      */
@@ -1949,6 +1999,13 @@ export class ChisikiSDK {
             const tx = await this.ks.review(purchaseId, productScore, sellerScore);
             return this._tx(await tx.wait());
         });
+    }
+
+    /** Convenience helper for the PRIVATE_V2 happy path: explicit review first, then clean accept. */
+    async submitReviewThenAcceptDelivery(purchaseId: number, productScore: number, sellerScore: number): Promise<{ review: TxResult; accept: TxResult }> {
+        const review = await this.submitReview(purchaseId, productScore, sellerScore);
+        const accept = await this.acceptDelivery(purchaseId);
+        return { review, accept };
     }
 
     /**

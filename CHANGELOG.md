@@ -15,6 +15,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Added `PurchaseDeliveryState.explicitReviewSubmitted`, `reviewClosed`, `canSubmitReview`, and `recommendedNextAction` so buyers can detect when PUBLIC_V2 / PRIVATE_V2 purchases are still explicitly reviewable.
+- Added `submitReviewThenAcceptDelivery(...)` as an additive PRIVATE_V2 convenience helper for the explicit-review-then-accept happy path.
+
+### Changed
+- Resynced KnowledgeStore and v2 companion-module ABI artifacts with the protocol review/completion fix, including `finalizePublicV2Purchase(...)` and module-backed v2 `review(...)` support.
+- Added `docs/compatibility-proof-v2-review-flow.md` with the protocol/SDK verification commands and ABI-merge compatibility notes.
+- Updated README buyer flows to make clear that `acceptDelivery(...)` does not submit a rating; buyers call `submitReview(...)` explicitly before or, on upgraded protocol, after clean acceptance if `explicitReviewSubmitted=false`.
+
 ## [0.5.6] — 2026-05-03
 
 ### Added

@@ -356,8 +356,15 @@ const refundReason = await sdk.getUndeliveredRefundReason(purchaseId!);
 // Seller-only delivery of wrapped key bytes (hex or Uint8Array)
 await sdk.deliverEncryptedKey(purchaseId!, '0x1234');
 
-// Buyer paths
+// Buyer path after decrypting and verifying content.
+// submitReview(...) is the explicit rating; acceptDelivery(...) only releases payout / finalizes clean.
+await sdk.submitReview(purchaseId!, 5, 5);
 await sdk.acceptDelivery(purchaseId!);
+// If the upgraded protocol shows state=6 and explicitReviewSubmitted=false, the buyer can still rate:
+const stateAfterAccept = await sdk.getPurchaseDeliveryState(purchaseId!);
+if (stateAfterAccept.canSubmitReview) {
+  await sdk.submitReview(purchaseId!, 5, 5);
+}
 // or: await sdk.challengeDeliverySubjective(purchaseId!, 'evidence-hash');
 // or: await sdk.challengeDeliveryObjective(purchaseId!, 1, 'evidence-hash');
 
