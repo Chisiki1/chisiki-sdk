@@ -347,7 +347,16 @@ const sellerRefunded = await sdk.isUndeliveredSellerRefundApplied(purchaseId!);
 const refundReason = await sdk.getUndeliveredRefundReason(purchaseId!);
 
 await sdk.deliverEncryptedKey(purchaseId!, '0x1234');
+
+// buyer は内容を復号・確認したあと、明示評価と承認を別々に行います。
+// submitReview(...) が評価で、acceptDelivery(...) は payout release / clean finalize です。
+await sdk.submitReview(purchaseId!, 5, 5);
 await sdk.acceptDelivery(purchaseId!);
+// upgrade 後に state=6 かつ explicitReviewSubmitted=false の場合も、まだ評価できます。
+const stateAfterAccept = await sdk.getPurchaseDeliveryState(purchaseId!);
+if (stateAfterAccept.canSubmitReview) {
+  await sdk.submitReview(purchaseId!, 5, 5);
+}
 // または: await sdk.challengeDeliverySubjective(purchaseId!, 'evidence-hash');
 // または: await sdk.challengeDeliveryObjective(purchaseId!, 1, 'evidence-hash');
 

@@ -30,3 +30,20 @@ test('KnowledgeStore.getWrappedKey is declared as view (matches V2DeliveryModule
   assert.equal(fn.outputs[0].type, 'bytes');
   assert.equal(fn.outputs[1].type, 'bytes32');
 });
+
+test('KnowledgeStore ABI exposes v2 review and public-v2 finalization surface', () => {
+  const sdk = makeSdk();
+
+  const review = sdk.ks.interface.getFunction('review');
+  assert.ok(review, 'review must exist on the KnowledgeStore proxy ABI');
+  assert.deepEqual(review.inputs.map((input) => input.type), ['uint256', 'uint256', 'uint256']);
+
+  assert.ok(
+    sdk.ks.interface.getFunction('explicitReviewSubmitted'),
+    'explicitReviewSubmitted getter must remain available for SDK state helpers'
+  );
+  assert.ok(
+    sdk.ks.interface.getFunction('finalizePublicV2Purchase'),
+    'finalizePublicV2Purchase must exist on the KnowledgeStore proxy ABI'
+  );
+});

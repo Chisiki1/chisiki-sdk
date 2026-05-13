@@ -188,6 +188,7 @@ test('KnowledgeStore ABI includes live v2 sales and delivery companion-module su
     'challengeDeliveryObjective',
     'finalizeCleanTimeout',
     'finalizeUndelivered',
+    'finalizePublicV2Purchase',
     'refundUndeliveredPurchase',
     'purchaseKnowledgeV2',
     'REFUND_REASON_INVALID_DELIVERY_CONFIG',
